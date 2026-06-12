@@ -77,64 +77,105 @@ namespace Moba.EditorTools
             var visual = new GameObject("Visual");
             visual.transform.SetParent(root.transform, false);
 
-            var body = AddPart(visual, PrimitiveType.Capsule, new Vector3(0f, 1f, 0f), Vector3.one);
-            body.AddComponent<TeamTint>();
-            var nose = AddPart(visual, PrimitiveType.Cube, new Vector3(0f, 1.15f, 0.42f),
-                new Vector3(0.28f, 0.28f, 0.5f));
-            SetColor(nose, new Color(0.85f, 0.85f, 0.8f));
+            // ---- shared mage figure: robe tiers, torso, head (no boxes anywhere) ----
+            var robe1 = AddPart(visual, PrimitiveType.Cylinder, new Vector3(0f, 0.3f, 0f),
+                new Vector3(1.05f, 0.3f, 1.05f));
+            robe1.AddComponent<TeamTint>();
+            var robe2 = AddPart(visual, PrimitiveType.Cylinder, new Vector3(0f, 0.78f, 0f),
+                new Vector3(0.85f, 0.26f, 0.85f));
+            robe2.AddComponent<TeamTint>();
+            var torso = AddPart(visual, PrimitiveType.Capsule, new Vector3(0f, 1.25f, 0f),
+                new Vector3(0.72f, 0.45f, 0.72f));
+            torso.AddComponent<TeamTint>();
+            foreach (int sx in new[] { -1, 1 }) // shoulders
+            {
+                var sh = AddPart(visual, PrimitiveType.Sphere,
+                    new Vector3(sx * 0.42f, 1.52f, 0f), Vector3.one * 0.34f);
+                sh.AddComponent<TeamTint>();
+            }
+            var head = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 1.95f, 0f),
+                Vector3.one * 0.62f);
+            SetColor(head, new Color(0.87f, 0.74f, 0.62f));
+            foreach (int sx in new[] { -1, 1 }) // glowing eyes mark the facing direction
+            {
+                var eye = AddPart(visual, PrimitiveType.Sphere,
+                    new Vector3(sx * 0.13f, 2.0f, 0.26f), Vector3.one * 0.1f);
+                SetColor(eye, new Color(0.9f, 0.95f, 1f), 1.8f);
+            }
 
-            // ---- Xardaras: fire mage (hat, cyan orb, fire staff) ----
+            // ---- Xardaras: fire mage (wizard hat, cyan orb, fire staff) ----
             var kx = new GameObject("KindX");
             kx.transform.SetParent(visual.transform, false);
-            var hatBrim = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 1.95f, 0f),
+            var hatBrim = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 2.22f, 0f),
                 new Vector3(0.95f, 0.06f, 0.95f));
             SetColor(hatBrim, new Color(0.2f, 0.25f, 0.62f));
-            var hatTop = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 2.25f, 0f),
-                new Vector3(0.45f, 0.3f, 0.45f));
+            var hatTop = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 2.46f, 0f),
+                new Vector3(0.46f, 0.24f, 0.46f));
             SetColor(hatTop, new Color(0.24f, 0.3f, 0.7f));
-            var hatTip = AddPart(kx, PrimitiveType.Sphere, new Vector3(0f, 2.62f, 0f),
-                Vector3.one * 0.22f);
+            var hatMid = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 2.68f, 0f),
+                new Vector3(0.28f, 0.16f, 0.28f));
+            SetColor(hatMid, new Color(0.26f, 0.32f, 0.74f));
+            var hatTip = AddPart(kx, PrimitiveType.Sphere, new Vector3(0f, 2.88f, 0f),
+                Vector3.one * 0.2f);
             SetColor(hatTip, new Color(0.55f, 0.8f, 1f), 1.6f);
+            var beard = AddPart(kx, PrimitiveType.Capsule, new Vector3(0f, 1.62f, 0.2f),
+                new Vector3(0.34f, 0.26f, 0.22f));
+            SetColor(beard, new Color(0.82f, 0.82f, 0.8f));
             var orbX = AddPart(kx, PrimitiveType.Sphere, new Vector3(0.62f, 1.8f, 0.1f),
                 Vector3.one * 0.28f);
             SetColor(orbX, new Color(0.45f, 0.8f, 1f), 1.8f);
             AddIdle(orbX, 0.14f, 2.4f, 90f, 0.08f);
-            var staffX = AddPart(kx, PrimitiveType.Cylinder, new Vector3(-0.55f, 1.05f, 0.15f),
-                new Vector3(0.08f, 0.95f, 0.08f));
-            SetColor(staffX, new Color(0.4f, 0.26f, 0.16f));
-            var staffTipX = AddPart(kx, PrimitiveType.Sphere, new Vector3(-0.55f, 2.1f, 0.15f),
-                Vector3.one * 0.3f);
-            SetColor(staffTipX, new Color(1f, 0.55f, 0.15f), 2f);
-            AddIdle(staffTipX, 0.05f, 3f, 0f, 0.12f);
+            BuildStaff(kx, new Color(0.4f, 0.26f, 0.16f), new Color(1f, 0.55f, 0.15f));
 
-            // ---- Belial: dark mage (horns, cloak, red orb, dark staff) ----
+            // ---- Belial: dark mage (curved horns, cloak, red orb) ----
             var kb = new GameObject("KindB");
             kb.transform.SetParent(visual.transform, false);
             foreach (int sx in new[] { -1, 1 })
             {
-                var horn = AddPart(kb, PrimitiveType.Cube, new Vector3(sx * 0.32f, 2.05f, 0f),
-                    new Vector3(0.14f, 0.5f, 0.14f));
-                horn.transform.localRotation = Quaternion.Euler(0f, 0f, sx * -24f);
+                var horn = AddPart(kb, PrimitiveType.Capsule, new Vector3(sx * 0.3f, 2.42f, 0f),
+                    new Vector3(0.14f, 0.3f, 0.14f));
+                horn.transform.localRotation = Quaternion.Euler(0f, 0f, sx * -26f);
                 SetColor(horn, new Color(0.42f, 0.12f, 0.12f));
                 var hornTip = AddPart(kb, PrimitiveType.Sphere,
-                    new Vector3(sx * 0.43f, 2.32f, 0f), Vector3.one * 0.12f);
+                    new Vector3(sx * 0.43f, 2.66f, 0f), Vector3.one * 0.13f);
                 SetColor(hornTip, new Color(1f, 0.35f, 0.2f), 1.8f);
             }
-            var cloak = AddPart(kb, PrimitiveType.Cube, new Vector3(0f, 1.05f, -0.38f),
-                new Vector3(0.95f, 1.65f, 0.18f));
+            var cloak = AddPart(kb, PrimitiveType.Capsule, new Vector3(0f, 1.1f, -0.42f),
+                new Vector3(0.95f, 0.85f, 0.22f));
             SetColor(cloak, new Color(0.16f, 0.08f, 0.14f));
             var orbB = AddPart(kb, PrimitiveType.Sphere, new Vector3(0.62f, 1.8f, 0.1f),
                 Vector3.one * 0.3f);
             SetColor(orbB, new Color(0.9f, 0.15f, 0.3f), 2f);
             AddIdle(orbB, 0.16f, 2f, -110f, 0.1f);
-            var staffB = AddPart(kb, PrimitiveType.Cylinder, new Vector3(-0.55f, 1.05f, 0.15f),
-                new Vector3(0.08f, 0.95f, 0.08f));
-            SetColor(staffB, new Color(0.12f, 0.08f, 0.12f));
-            var staffTipB = AddPart(kb, PrimitiveType.Sphere, new Vector3(-0.55f, 2.1f, 0.15f),
-                Vector3.one * 0.3f);
-            SetColor(staffTipB, new Color(0.7f, 0.2f, 1f), 2f);
-            AddIdle(staffTipB, 0.05f, 3f, 0f, 0.12f);
+            BuildStaff(kb, new Color(0.12f, 0.08f, 0.12f), new Color(0.7f, 0.2f, 1f));
             kb.SetActive(false);
+
+            // ---- Adanos: water mage (ice crown, frost orbs, water staff) ----
+            var ka = new GameObject("KindA");
+            ka.transform.SetParent(visual.transform, false);
+            for (int i = 0; i < 5; i++) // crown of ice spikes
+            {
+                float a = (i - 2) * 0.5f;
+                var spike = AddPart(ka, PrimitiveType.Capsule,
+                    new Vector3(Mathf.Sin(a) * 0.3f, 2.38f + (i % 2 == 0 ? 0.1f : 0f),
+                        Mathf.Cos(a) * 0.12f - 0.02f),
+                    new Vector3(0.09f, 0.22f, 0.09f));
+                spike.transform.localRotation = Quaternion.Euler(0f, 0f, -a * 30f);
+                SetColor(spike, new Color(0.75f, 0.92f, 1f), 1.2f);
+            }
+            var hood = AddPart(ka, PrimitiveType.Sphere, new Vector3(0f, 2.05f, -0.08f),
+                new Vector3(0.72f, 0.6f, 0.66f));
+            SetColor(hood, new Color(0.2f, 0.45f, 0.66f));
+            var orbA = AddPart(ka, PrimitiveType.Sphere, new Vector3(0.62f, 1.8f, 0.1f),
+                Vector3.one * 0.28f);
+            SetColor(orbA, new Color(0.45f, 0.9f, 1f), 2f);
+            AddIdle(orbA, 0.15f, 2.6f, 120f, 0.1f);
+            var droplet = AddPart(ka, PrimitiveType.Sphere, new Vector3(-0.62f, 2.05f, 0.05f),
+                Vector3.one * 0.16f);
+            SetColor(droplet, new Color(0.6f, 0.95f, 1f), 1.6f);
+            AddIdle(droplet, 0.2f, 3.2f, -160f, 0.12f);
+            BuildStaff(ka, new Color(0.16f, 0.3f, 0.42f), new Color(0.35f, 0.85f, 1f));
+            ka.SetActive(false);
 
             AddHealthBar(root, 2.6f, 1.7f);
 
@@ -426,26 +467,49 @@ namespace Moba.EditorTools
 
         // ============================== BUILD ==============================
 
-        [MenuItem("MOBA/Build macOS Player")]
-        public static void BuildMacPlayer()
+        static void ApplyPlayerSettings()
         {
-            PlayerSettings.productName = "MobaGame";
+            PlayerSettings.productName = "Mini Moba";
             PlayerSettings.companyName = "Moba";
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
             PlayerSettings.defaultScreenWidth = 1280;
             PlayerSettings.defaultScreenHeight = 720;
             PlayerSettings.resizableWindow = true;
             PlayerSettings.runInBackground = true;
+        }
 
+        [MenuItem("MOBA/Build macOS Player")]
+        public static void BuildMacPlayer()
+        {
+            ApplyPlayerSettings();
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },
-                locationPathName = "Builds/MobaGame.app",
+                locationPathName = "Builds/MiniMoba.app",
                 target = BuildTarget.StandaloneOSX,
                 options = BuildOptions.None
             };
             var report = BuildPipeline.BuildPlayer(options);
             Debug.Log("[Moba] Build: " + report.summary.result +
+                      ", errors: " + report.summary.totalErrors);
+        }
+
+        /// Mobile build: runs in any phone browser, joins desktop hosts over WebSockets.
+        [MenuItem("MOBA/Build WebGL (mobile)")]
+        public static void BuildWebGL()
+        {
+            ApplyPlayerSettings();
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+            PlayerSettings.runInBackground = true;
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = "Builds/WebGL",
+                target = BuildTarget.WebGL,
+                options = BuildOptions.None
+            };
+            var report = BuildPipeline.BuildPlayer(options);
+            Debug.Log("[Moba] WebGL build: " + report.summary.result +
                       ", errors: " + report.summary.totalErrors);
         }
 
@@ -526,6 +590,17 @@ namespace Moba.EditorTools
             ac.emission = emission;
             ac.textureResource = texture;
             ac.tiling = tiling;
+        }
+
+        static void BuildStaff(GameObject parent, Color wood, Color tip)
+        {
+            var staff = AddPart(parent, PrimitiveType.Cylinder, new Vector3(-0.55f, 1.05f, 0.15f),
+                new Vector3(0.08f, 0.95f, 0.08f));
+            SetColor(staff, wood);
+            var orb = AddPart(parent, PrimitiveType.Sphere, new Vector3(-0.55f, 2.1f, 0.15f),
+                Vector3.one * 0.3f);
+            SetColor(orb, tip, 2f);
+            AddIdle(orb, 0.05f, 3f, 0f, 0.12f);
         }
 
         static void AddIdle(GameObject go, float amp, float speed, float spin, float pulse)

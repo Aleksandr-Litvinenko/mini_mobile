@@ -92,6 +92,7 @@ namespace Moba
             pos.x = Mathf.Clamp(pos.x, -GameConstants.ClampX, GameConstants.ClampX);
             pos.z = Mathf.Clamp(pos.z, -GameConstants.ClampZ, GameConstants.ClampZ);
             pos.y = 0f;
+            pos = MapBuilder.ResolvePosition(pos, BodyRadius);
             transform.position = pos;
         }
 

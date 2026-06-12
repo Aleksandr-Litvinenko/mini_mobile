@@ -7,6 +7,9 @@ namespace Moba
     /// then active lava dealing damage per tick to heroes and minions standing on it.
     public class LavaPool : NetworkBehaviour
     {
+        public static readonly System.Collections.Generic.List<LavaPool> ActivePools =
+            new System.Collections.Generic.List<LavaPool>();
+
         public NetworkVariable<float> Radius = new NetworkVariable<float>(2.5f);
         public NetworkVariable<float> ActiveAt = new NetworkVariable<float>(0f);
         public NetworkVariable<float> DespawnAt = new NetworkVariable<float>(0f);
@@ -29,6 +32,7 @@ namespace Moba
 
         public override void OnNetworkSpawn()
         {
+            ActivePools.Add(this);
             if (IsServer)
             {
                 Radius.Value = PendingRadius;
@@ -37,6 +41,11 @@ namespace Moba
             }
             if (disc != null)
                 _discR = disc.GetComponent<Renderer>();
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            ActivePools.Remove(this);
         }
 
         void Update()

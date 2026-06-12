@@ -5,7 +5,8 @@ using UnityEngine;
 namespace Moba
 {
     /// Player-controlled hero. Movement is owner-authoritative, combat is server-authoritative.
-    /// Two kits: Xardaras (fire mage) and Belial (dark mage with lifesteal).
+    /// Three kits: Xardaras (fire), Belial (dark, lifesteal), Adanos (water, sustain).
+    /// Can be driven by HeroBot in training mode (server-owned, input skipped).
     public class Hero : UnitBase
     {
         public static Hero Local;
@@ -13,6 +14,7 @@ namespace Moba
 
         // ---- networked state ----
         public NetworkVariable<byte> Kind = new NetworkVariable<byte>(0);
+        public NetworkVariable<bool> IsBot = new NetworkVariable<bool>(false);
         public NetworkVariable<int> Level = new NetworkVariable<int>(1);
         public NetworkVariable<int> Xp = new NetworkVariable<int>(0);
         public NetworkVariable<int> Gold = new NetworkVariable<int>(0);
@@ -21,11 +23,15 @@ namespace Moba
         public NetworkVariable<bool> Dead = new NetworkVariable<bool>(false);
         public NetworkVariable<float> RespawnAtTime = new NetworkVariable<float>(0f);
         public NetworkVariable<float> SlowUntilTime = new NetworkVariable<float>(0f);
+        public NetworkVariable<float> HasteUntilTime = new NetworkVariable<float>(0f);
         public NetworkVariable<int> AtkUp = new NetworkVariable<int>(0);
         public NetworkVariable<int> HpUp = new NetworkVariable<int>(0);
         public NetworkVariable<int> AsUp = new NetworkVariable<int>(0);
         public NetworkVariable<int> Kills = new NetworkVariable<int>(0);
         public NetworkVariable<int> Deaths = new NetworkVariable<int>(0);
+
+        // set by the spawner before Spawn() (bot in training mode)
+        [HideInInspector] public bool PendingBot;
 
         // ---- tuning ----
         public const int MaxLevel = 15;
@@ -41,32 +47,49 @@ namespace Moba
         // ---- derived stats (branch by hero kind) ----
         public HeroKind HeroType => (HeroKind)Kind.Value;
         bool IsBelial => Kind.Value == (byte)HeroKind.Belial;
+        bool IsAdanos => Kind.Value == (byte)HeroKind.Adanos;
 
         public float AttackDamage =>
-            (IsBelial ? 66f + 13f * (Level.Value - 1) : 60f + 12f * (Level.Value - 1)) + 15f * AtkUp.Value;
-        public float AttackRange => IsBelial ? 5.0f : 6.0f;
+            (IsBelial ? 66f + 13f * (Level.Value - 1)
+             : IsAdanos ? 58f + 11f * (Level.Value - 1)
+             : 60f + 12f * (Level.Value - 1)) + 15f * AtkUp.Value;
+        public float AttackRange => IsBelial ? 5.0f : IsAdanos ? 5.5f : 6.0f;
         public float AttackCooldown => 1.1f * Mathf.Pow(0.88f, AsUp.Value);
-        public float QDamage => IsBelial ? 115f + 34f * (Level.Value - 1) : 95f + 30f * (Level.Value - 1);
+        public float QDamage =>
+            IsBelial ? 115f + 34f * (Level.Value - 1)
+            : IsAdanos ? 85f + 26f * (Level.Value - 1)
+            : 95f + 30f * (Level.Value - 1);
         public float WDrainDamage => 75f + 22f * (Level.Value - 1);
-        public float EDamage => IsBelial ? 150f + 36f * (Level.Value - 1) : 180f + 42f * (Level.Value - 1);
+        public float WFlowHeal => 90f + 24f * (Level.Value - 1);
+        public float EDamage =>
+            IsBelial ? 150f + 36f * (Level.Value - 1)
+            : IsAdanos ? 140f + 32f * (Level.Value - 1)
+            : 180f + 42f * (Level.Value - 1);
         public float EHealPerHit => 70f + 15f * (Level.Value - 1);
-        public float QCd => IsBelial ? 6f : 5f;
+        public float QCd => IsBelial ? 6f : IsAdanos ? 4.5f : 5f;
         public float WCd => IsBelial ? 7f : 9f;
-        public float ECd => 30f;
-        public float QCost => IsBelial ? 45f : 40f;
-        public float WCost => IsBelial ? 40f : 35f;
+        public float ECd => IsAdanos ? 28f : 30f;
+        public float QCost => IsBelial ? 45f : IsAdanos ? 35f : 40f;
+        public float WCost => IsBelial ? 40f : IsAdanos ? 45f : 35f;
         public float ECost => 100f;
         public bool UltReady => Level.Value >= UltLevel;
         float StatMaxHp =>
-            (IsBelial ? 1150f + 165f * (Level.Value - 1) : 1000f + 150f * (Level.Value - 1)) + 200f * HpUp.Value;
-        float StatMaxMana => 400f + 55f * (Level.Value - 1);
+            (IsBelial ? 1150f + 165f * (Level.Value - 1)
+             : IsAdanos ? 1050f + 155f * (Level.Value - 1)
+             : 1000f + 150f * (Level.Value - 1)) + 200f * HpUp.Value;
+        float StatMaxMana => (IsAdanos ? 460f : 400f) + (IsAdanos ? 65f : 55f) * (Level.Value - 1);
         public int XpToNext => 90 + 70 * (Level.Value - 1);
         public bool IsSlowed => NetworkManager != null && ServerTimeF < SlowUntilTime.Value;
+        public bool IsHasted => NetworkManager != null && ServerTimeF < HasteUntilTime.Value;
+        public float CurrentMoveSpeed => BaseMoveSpeed * (IsSlowed ? 0.5f : 1f) * (IsHasted ? 1.35f : 1f);
         public override bool Alive => IsSpawned && !Dead.Value && Hp.Value > 0f;
         public override float HealthBarHeight => 2.6f;
         public override float BodyRadius => 0.55f;
 
-        public Color KindColor => IsBelial ? new Color(0.85f, 0.2f, 0.45f) : new Color(1f, 0.55f, 0.2f);
+        public Color KindColor =>
+            IsBelial ? new Color(0.85f, 0.2f, 0.45f)
+            : IsAdanos ? new Color(0.3f, 0.75f, 1f)
+            : new Color(1f, 0.55f, 0.2f);
 
         // ---- owner-side cooldown estimates for the HUD ----
         [HideInInspector] public float CdAttackUntil, CdQUntil, CdWUntil, CdEUntil;
@@ -85,13 +108,16 @@ namespace Moba
             base.OnNetworkSpawn();
             if (IsServer)
             {
-                TeamId.Value = OwnerClientId == NetworkManager.ServerClientId ? (byte)Team.Blue : (byte)Team.Red;
+                if (PendingBot) IsBot.Value = true;
+                TeamId.Value = PendingTeam != 0
+                    ? PendingTeam
+                    : OwnerClientId == NetworkManager.ServerClientId ? (byte)Team.Blue : (byte)Team.Red;
                 ApplyTeamColor();
                 ServerRecalcStats();
                 Hp.Value = MaxHp.Value;
                 Mana.Value = MaxMana.Value;
             }
-            if (IsOwner)
+            if (IsOwner && !PendingBot && !IsBot.Value)
             {
                 Local = this;
                 SelectHeroRpc((byte)LocalChoice);
@@ -108,6 +134,17 @@ namespace Moba
             Dead.OnValueChanged -= OnDeadChanged;
             Kind.OnValueChanged -= OnKindChanged;
             if (Local == this) Local = null;
+        }
+
+        /// Server-side: lock the bot's hero kind (training mode).
+        public void ServerSetKind(HeroKind k)
+        {
+            if (!IsServer) return;
+            _kindLocked = true;
+            Kind.Value = (byte)k;
+            ServerRecalcStats();
+            Hp.Value = MaxHp.Value;
+            Mana.Value = MaxMana.Value;
         }
 
         void OnDeadChanged(bool oldV, bool newV)
@@ -131,8 +168,10 @@ namespace Moba
             if (visual == null) return;
             var kx = visual.Find("KindX");
             var kb = visual.Find("KindB");
-            if (kx != null) kx.gameObject.SetActive(!IsBelial);
+            var ka = visual.Find("KindA");
+            if (kx != null) kx.gameObject.SetActive(!IsBelial && !IsAdanos);
             if (kb != null) kb.gameObject.SetActive(IsBelial);
+            if (ka != null) ka.gameObject.SetActive(IsAdanos);
         }
 
         // ============================== OWNER ==============================
@@ -159,16 +198,20 @@ namespace Moba
                 TeleportLocal(GameConstants.HeroSpawn(Team));
             }
 
+            if (IsBot.Value) return; // HeroBot drives this one on the server
             if (Dead.Value) return;
 
             float dt = Time.deltaTime;
-            float speed = BaseMoveSpeed * (IsSlowed ? 0.5f : 1f);
+            float speed = CurrentMoveSpeed;
 
-            // movement: WASD / arrows, or hold RMB to move towards the cursor
+            // movement: WASD / arrows, RMB towards cursor, or the touch joystick
             Vector3 input = Vector3.zero;
             input.x = Input.GetAxisRaw("Horizontal");
             input.z = Input.GetAxisRaw("Vertical");
-            if (input.sqrMagnitude < 0.01f && Input.GetMouseButton(1) && MouseGroundPoint(out var mp))
+            if (TouchHud.Enabled && TouchHud.Move.sqrMagnitude > 0.04f)
+                input = new Vector3(TouchHud.Move.x, 0f, TouchHud.Move.y);
+            if (input.sqrMagnitude < 0.01f && !TouchHud.Enabled &&
+                Input.GetMouseButton(1) && MouseGroundPoint(out var mp))
             {
                 var to = GameConstants.Flat(mp - transform.position);
                 if (to.magnitude > 0.4f) input = to;
@@ -185,6 +228,7 @@ namespace Moba
             pos.x = Mathf.Clamp(pos.x, -GameConstants.ClampX, GameConstants.ClampX);
             pos.z = Mathf.Clamp(pos.z, -GameConstants.ClampZ, GameConstants.ClampZ);
             pos.y = 0f;
+            pos = MapBuilder.ResolvePosition(pos, BodyRadius);
             transform.position = pos;
             if (_faceDir.sqrMagnitude > 0.01f)
                 transform.rotation = Quaternion.Slerp(transform.rotation,
@@ -193,11 +237,16 @@ namespace Moba
             if (!GameManager.Playing) return;
 
             bool attackPressed = Input.GetKey(KeyCode.Space) ||
-                                 (Input.GetMouseButton(0) && GUIUtility.hotControl == 0);
+                                 (!TouchHud.Enabled && Input.GetMouseButton(0) &&
+                                  GUIUtility.hotControl == 0);
+            if (TouchHud.Enabled && TouchHud.AttackHeld) attackPressed = true;
             if (attackPressed) TryAttack();
-            if (Input.GetKeyDown(KeyCode.Q)) TryCastQ();
-            if (Input.GetKeyDown(KeyCode.W)) TryCastW();
+            if (Input.GetKeyDown(KeyCode.Q)) TryCastQ(false);
+            if (Input.GetKeyDown(KeyCode.W)) TryCastW(false);
             if (Input.GetKeyDown(KeyCode.E)) TryCastE();
+            if (TouchHud.ConsumeQ()) TryCastQ(true);
+            if (TouchHud.ConsumeW()) TryCastW(true);
+            if (TouchHud.ConsumeE()) TryCastE();
             if (Input.GetKeyDown(KeyCode.Alpha1)) RequestBuy(0);
             if (Input.GetKeyDown(KeyCode.Alpha2)) RequestBuy(1);
             if (Input.GetKeyDown(KeyCode.Alpha3)) RequestBuy(2);
@@ -218,14 +267,14 @@ namespace Moba
             AttackRpc(target.NetworkObjectId);
         }
 
-        UnitBase FindNearestEnemy(float range)
+        public UnitBase FindNearestEnemy(float range)
         {
             UnitBase best = null;
             float bestDist = float.MaxValue;
             foreach (var u in All)
             {
                 if (u == null || !u.Alive || u.Team == Team || u.Team == Team.None) continue;
-                if (u is Hero h && !h.IsVisibleLocally) continue; // can't target a hero hidden in a bush
+                if (u is Hero h && Local == this && !h.IsVisibleLocally) continue; // bush stealth
                 float d = GameConstants.Dist2D(transform.position, u.Pos) - u.BodyRadius;
                 if (d <= range && d < bestDist)
                 {
@@ -236,11 +285,21 @@ namespace Moba
             return best;
         }
 
-        void TryCastQ()
+        Vector3 AutoAimDir()
+        {
+            var target = FindNearestEnemy(15f);
+            if (target != null)
+                return GameConstants.Flat(target.Pos - transform.position).normalized;
+            return _faceDir;
+        }
+
+        void TryCastQ(bool autoAim)
         {
             if (Time.time < CdQUntil || Mana.Value < QCost) return;
             Vector3 dir = _faceDir;
-            if (MouseGroundPoint(out var mp))
+            if (autoAim)
+                dir = AutoAimDir();
+            else if (MouseGroundPoint(out var mp))
             {
                 var to = GameConstants.Flat(mp - transform.position);
                 if (to.magnitude > 0.3f) dir = to.normalized;
@@ -250,7 +309,7 @@ namespace Moba
             CastQRpc(dir);
         }
 
-        void TryCastW()
+        void TryCastW(bool autoAim)
         {
             if (Time.time < CdWUntil || Mana.Value < WCost) return;
             if (IsBelial)
@@ -260,13 +319,18 @@ namespace Moba
                 CdWUntil = Time.time + WCd;
                 DrainRpc(target.NetworkObjectId);
             }
+            else if (IsAdanos)
+            {
+                CdWUntil = Time.time + WCd;
+                FlowRpc();
+            }
             else
             {
-                // blink towards the cursor (or facing direction), up to 7 units
+                // blink towards the cursor (or movement direction on touch), up to 7 units
                 Vector3 from = transform.position;
                 Vector3 dir = _faceDir;
                 float dist = 7f;
-                if (MouseGroundPoint(out var mp))
+                if (!autoAim && MouseGroundPoint(out var mp))
                 {
                     var to = GameConstants.Flat(mp - from);
                     if (to.magnitude > 0.5f)
@@ -278,6 +342,7 @@ namespace Moba
                 Vector3 to2 = from + dir * dist;
                 to2.x = Mathf.Clamp(to2.x, -GameConstants.ClampX, GameConstants.ClampX);
                 to2.z = Mathf.Clamp(to2.z, -GameConstants.ClampZ, GameConstants.ClampZ);
+                to2 = MapBuilder.ResolvePosition(to2, BodyRadius);
                 CdWUntil = Time.time + WCd;
                 _faceDir = dir;
                 TeleportLocal(to2);
@@ -292,7 +357,7 @@ namespace Moba
             CastERpc();
         }
 
-        void TeleportLocal(Vector3 pos)
+        public void TeleportLocal(Vector3 pos)
         {
             var nt = GetComponent<NetworkTransform>();
             var rot = Quaternion.LookRotation(_faceDir);
@@ -334,11 +399,13 @@ namespace Moba
         }
 
         // ============================== RPCs ==============================
+        // Public so the training bot can invoke them directly on the server
+        // (RPCs targeting the server execute locally when called from it).
 
         [Rpc(SendTo.Server)]
         void SelectHeroRpc(byte kind)
         {
-            if (_kindLocked || kind > 1) return;
+            if (_kindLocked || kind >= HeroData.Count) return;
             _kindLocked = true;
             Kind.Value = kind;
             ServerRecalcStats();
@@ -347,7 +414,7 @@ namespace Moba
         }
 
         [Rpc(SendTo.Server)]
-        void AttackRpc(ulong targetId)
+        public void AttackRpc(ulong targetId)
         {
             if (Dead.Value || !GameManager.Playing) return;
             if (ServerTimeF < _srvNextAttack - 0.08f) return;
@@ -363,7 +430,7 @@ namespace Moba
         }
 
         [Rpc(SendTo.Server)]
-        void CastQRpc(Vector3 dir)
+        public void CastQRpc(Vector3 dir)
         {
             if (Dead.Value || !GameManager.Playing) return;
             if (ServerTimeF < _srvNextQ - 0.08f || Mana.Value < QCost) return;
@@ -375,15 +442,18 @@ namespace Moba
             if (IsBelial)
                 Projectile.ServerSpawnLinear(transform.position + Vector3.up * 1.2f,
                     dir, this, QDamage, 14f, 13f, Team, 0.65f, 1.6f);
+            else if (IsAdanos)
+                Projectile.ServerSpawnLinear(transform.position + Vector3.up * 1.2f,
+                    dir, this, QDamage, 17f, 14f, Team, 0.55f, 1.2f);
             else
                 Projectile.ServerSpawnLinear(transform.position + Vector3.up * 1.2f,
                     dir, this, QDamage, 19f, 15f, Team, 0.55f, 0f);
         }
 
         [Rpc(SendTo.Server)]
-        void BlinkRpc(Vector3 from, Vector3 to)
+        public void BlinkRpc(Vector3 from, Vector3 to)
         {
-            if (Dead.Value || !GameManager.Playing || IsBelial) return;
+            if (Dead.Value || !GameManager.Playing || IsBelial || IsAdanos) return;
             if (ServerTimeF < _srvNextW - 0.08f || Mana.Value < WCost) return;
             if (Vector3.Distance(from, to) > 8.5f) return;
             _srvNextW = ServerTimeF + WCd;
@@ -392,7 +462,7 @@ namespace Moba
         }
 
         [Rpc(SendTo.Server)]
-        void DrainRpc(ulong targetId)
+        public void DrainRpc(ulong targetId)
         {
             if (Dead.Value || !GameManager.Playing || !IsBelial) return;
             if (ServerTimeF < _srvNextW - 0.08f || Mana.Value < WCost) return;
@@ -409,7 +479,19 @@ namespace Moba
         }
 
         [Rpc(SendTo.Server)]
-        void CastERpc()
+        public void FlowRpc()
+        {
+            if (Dead.Value || !GameManager.Playing || !IsAdanos) return;
+            if (ServerTimeF < _srvNextW - 0.08f || Mana.Value < WCost) return;
+            _srvNextW = ServerTimeF + WCd;
+            Mana.Value -= WCost;
+            ServerHeal(WFlowHeal);
+            HasteUntilTime.Value = ServerTimeF + 2f;
+            FlowFxRpc();
+        }
+
+        [Rpc(SendTo.Server)]
+        public void CastERpc()
         {
             if (Dead.Value || !GameManager.Playing || !UltReady) return;
             if (ServerTimeF < _srvNextE - 0.08f || Mana.Value < ECost) return;
@@ -417,7 +499,8 @@ namespace Moba
             Mana.Value -= ECost;
 
             Vector3 center = transform.position;
-            const float radius = 5f;
+            float radius = IsAdanos ? 5.5f : 5f;
+            float slowDur = IsAdanos ? 3f : 2f;
             UltFxRpc(center, radius);
             int hits = 0;
             // snapshot: ServerTakeDamage can despawn units and mutate All
@@ -426,8 +509,8 @@ namespace Moba
             {
                 if (u == null || !u.Alive || u.Team == Team || u.Team == Team.None) continue;
                 if (GameConstants.Dist2D(center, u.Pos) > radius + u.BodyRadius) continue;
-                if (u is Hero h) h.SlowUntilTime.Value = ServerTimeF + 2f;
-                if (u is Minion m) m.ServerSlow(2f);
+                if (u is Hero h) h.SlowUntilTime.Value = ServerTimeF + slowDur;
+                if (u is Minion m) m.ServerSlow(slowDur);
                 u.ServerTakeDamage(EDamage, this);
                 hits++;
             }
@@ -436,7 +519,7 @@ namespace Moba
         }
 
         [Rpc(SendTo.Server)]
-        void BuyUpgradeRpc(int index)
+        public void BuyUpgradeRpc(int index)
         {
             if (index < 0 || index > 2 || Dead.Value) return;
             var counter = index == 0 ? AtkUp : index == 1 ? HpUp : AsUp;
@@ -475,6 +558,13 @@ namespace Moba
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        void FlowFxRpc()
+        {
+            FxBurst.Spawn(transform.position, new Color(0.35f, 0.9f, 0.8f), 2.2f, 0.4f);
+            ParticleFx.SpawnOneShot(transform.position, new Color(0.4f, 0.95f, 0.85f));
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         void UltFxRpc(Vector3 pos, float radius)
         {
             FxBurst.Spawn(pos, KindColor, radius);
@@ -502,9 +592,10 @@ namespace Moba
                 return;
             }
 
-            // regen
+            // regen (Adanos passively restores mana much faster)
             ServerHeal((2.5f + 0.5f * Level.Value) * dt);
-            Mana.Value = Mathf.Min(MaxMana.Value, Mana.Value + (3f + 0.4f * Level.Value) * dt);
+            float manaRegen = (3f + 0.4f * Level.Value) * (IsAdanos ? 1.6f : 1f);
+            Mana.Value = Mathf.Min(MaxMana.Value, Mana.Value + manaRegen * dt);
 
             // fountain
             if (GameConstants.Dist2D(transform.position, GameConstants.BasePos(Team)) < GameConstants.FountainRadius)

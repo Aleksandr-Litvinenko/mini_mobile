@@ -26,7 +26,7 @@ namespace Moba
         {
             float scroll = Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Abs(scroll) > 0.001f)
-                _zoom = Mathf.Clamp(_zoom - scroll * 0.8f, 0.65f, 1.45f);
+                _zoom = Mathf.Clamp(_zoom - scroll * 0.8f, 0.65f, 1.8f);
 
             if (Hero.Local != null)
             {
@@ -41,9 +41,9 @@ namespace Moba
             }
             else
             {
-                // slow menu orbit around the arena
-                float a = Time.time * 0.08f;
-                Vector3 pos = new Vector3(Mathf.Sin(a) * 26f, 17f, Mathf.Cos(a) * 26f);
+                // slow menu orbit around the arena, volcanoes in view
+                float a = Time.time * 0.07f;
+                Vector3 pos = new Vector3(Mathf.Sin(a) * 36f, 22f, Mathf.Cos(a) * 36f);
                 transform.position = Vector3.Lerp(transform.position, pos, 2f * Time.deltaTime);
                 transform.rotation = Quaternion.Slerp(transform.rotation,
                     Quaternion.LookRotation(Vector3.zero + Vector3.up * 0.5f - transform.position),

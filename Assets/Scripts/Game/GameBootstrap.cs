@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 
 namespace Moba
@@ -19,8 +20,16 @@ namespace Moba
 
         void Start()
         {
+            if (NetworkManager.Singleton == null) return;
+
+            // WebSockets work on every platform including WebGL (mobile browsers),
+            // so the same build can host on desktop and be joined from a phone.
+            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            if (utp != null && !NetworkManager.Singleton.IsListening)
+                utp.UseWebSockets = true;
+
             // NetworkManager survives scene reloads (DontDestroyOnLoad), register only once per run
-            if (_prefabsRegistered || NetworkManager.Singleton == null) return;
+            if (_prefabsRegistered) return;
             _prefabsRegistered = true;
             RegisterPrefab(GamePrefabs.Minion);
             RegisterPrefab(GamePrefabs.Tower);

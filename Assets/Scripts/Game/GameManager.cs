@@ -8,6 +8,9 @@ namespace Moba
     {
         public static GameManager Instance;
 
+        /// Set by the menu before StartHost: single player vs an AI-driven hero.
+        public static bool TrainingMode;
+
         public NetworkVariable<bool> GameStarted = new NetworkVariable<bool>(false);
         public NetworkVariable<byte> Winner = new NetworkVariable<byte>(0);
         public NetworkVariable<float> StartTime = new NetworkVariable<float>(0f);
@@ -79,10 +82,10 @@ namespace Moba
             EruptionFxRpc();
             var lavaPrefab = Resources.Load<GameObject>("Prefabs/LavaPool");
             if (lavaPrefab == null) return;
-            int pools = Random.Range(4, 7);
+            int pools = Random.Range(5, 9);
             for (int i = 0; i < pools; i++)
             {
-                var pos = new Vector3(Random.Range(-22f, 22f), 0.02f, Random.Range(-10f, 10f));
+                var pos = new Vector3(Random.Range(-32f, 32f), 0.02f, Random.Range(-13f, 13f));
                 var go = Instantiate(lavaPrefab, pos, Quaternion.identity);
                 var lp = go.GetComponent<LavaPool>();
                 lp.PendingRadius = Random.Range(2.2f, 3.2f);
@@ -104,7 +107,9 @@ namespace Moba
 
         void OnClientConnected(ulong clientId)
         {
-            if (NetworkManager.ConnectedClientsIds.Count > 2)
+            bool tooMany = NetworkManager.ConnectedClientsIds.Count > 2 ||
+                           (TrainingMode && clientId != NetworkManager.ServerClientId);
+            if (tooMany)
             {
                 NetworkManager.DisconnectClient(clientId);
                 return;
@@ -114,6 +119,7 @@ namespace Moba
 
         void OnClientDisconnected(ulong clientId)
         {
+            if (TrainingMode) return; // the bot never disconnects, session dies with the host
             if (!GameStarted.Value || Winner.Value != 0) return;
             // remaining player wins by forfeit
             foreach (var u in UnitBase.All)
@@ -126,20 +132,45 @@ namespace Moba
 
         void CheckStart()
         {
-            if (GameStarted.Value || NetworkManager.ConnectedClientsIds.Count < 2) return;
+            if (GameStarted.Value) return;
+            int players = NetworkManager.ConnectedClientsIds.Count;
+            if (TrainingMode)
+            {
+                if (players < 1) return;
+                ServerSpawnBot();
+            }
+            else if (players < 2)
+                return;
             GameStarted.Value = true;
             StartTime.Value = NetworkManager.ServerTime.TimeAsFloat;
             _nextWave = StartTime.Value + 3f;
             _nextEruption = StartTime.Value + 35f;
-            Debug.Log("[Moba] Match started with 2 players");
+            Debug.Log("[Moba] Match started" + (TrainingMode ? " (training vs bot)" : " with 2 players"));
+        }
+
+        void ServerSpawnBot()
+        {
+            var go = Instantiate(GamePrefabs.Hero, GameConstants.HeroSpawn(Team.Red),
+                Quaternion.LookRotation(Vector3.left));
+            var hero = go.GetComponent<Hero>();
+            hero.PendingBot = true;
+            hero.PendingTeam = (byte)Team.Red;
+            go.GetComponent<NetworkObject>().Spawn(true); // server-owned
+            hero.ServerSetKind((HeroKind)Random.Range(0, HeroData.Count));
+            go.AddComponent<HeroBot>();
+            Debug.Log("[Moba] Bot spawned: " + HeroData.Name(hero.HeroType));
         }
 
         void ServerSpawnStructures()
         {
             foreach (Team t in new[] { Team.Blue, Team.Red })
             {
+                float side = t == Team.Blue ? -1f : 1f;
                 SpawnStructure(GamePrefabs.BaseCore, GameConstants.BasePos(t), t, 3200f);
-                SpawnStructure(GamePrefabs.Tower, GameConstants.TowerPos(t), t, 2200f);
+                SpawnStructure(GamePrefabs.Tower,
+                    new Vector3(side * GameConstants.Tower1X, 0f, 0f), t, 2000f);
+                SpawnStructure(GamePrefabs.Tower,
+                    new Vector3(side * GameConstants.Tower2X, 0f, 0f), t, 2400f);
             }
         }
 
