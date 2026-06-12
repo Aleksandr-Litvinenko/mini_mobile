@@ -4903,7 +4903,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7567083072275290114}
-  - component: {fileID: 6746714552526964200}
+  - component: {fileID: 8209894566818829239}
   m_Layer: 0
   m_Name: FxSparkBurst
   m_TagString: Untagged
@@ -4927,7 +4927,7 @@ Transform:
   - {fileID: 320840248013153442}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6746714552526964200
+--- !u!114 &8209894566818829239
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

@@ -1,9 +1,11 @@
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using Unity.Netcode.Transports.UTP;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
@@ -60,6 +62,7 @@ namespace Moba.EditorTools
             Directory.CreateDirectory("Assets/Scenes");
             AssetDatabase.Refresh();
             MakeAllParticleMats();
+            ConfigureModelImports();
 
             BuildHeroPrefab();
             BuildMinionPrefab();
@@ -70,6 +73,132 @@ namespace Moba.EditorTools
             BuildFxPrefabs();
         }
 
+        // ============================== READY-MADE MODELS (Quaternius, CC0) ==============================
+
+        const string ModelDir = "Assets/Resources/Models/";
+
+        /// Make Idle/Run/Walk clips loop on the animated FBX models.
+        static void ConfigureModelImports()
+        {
+            foreach (var name in new[] { "Wizard", "Witch", "Elf", "GreenSpikyBlob", "Mushnub" })
+            {
+                string path = ModelDir + name + ".fbx";
+                var imp = AssetImporter.GetAtPath(path) as ModelImporter;
+                if (imp == null) continue;
+                var clips = imp.defaultClipAnimations;
+                bool dirty = false;
+                foreach (var c in clips)
+                {
+                    bool loop = c.name.Contains("Idle") || c.name.Contains("Run") ||
+                                c.name.Contains("Walk");
+                    if (c.loopTime != loop)
+                    {
+                        c.loopTime = loop;
+                        dirty = true;
+                    }
+                }
+                if (dirty || imp.clipAnimations.Length == 0)
+                {
+                    imp.clipAnimations = clips;
+                    imp.SaveAndReimport();
+                }
+            }
+        }
+
+        static Bounds ModelBounds(GameObject inst)
+        {
+            var rends = inst.GetComponentsInChildren<Renderer>(true);
+            var b = new Bounds(inst.transform.position, Vector3.zero);
+            bool first = true;
+            foreach (var r in rends)
+            {
+                if (first) { b = r.bounds; first = false; }
+                else b.Encapsulate(r.bounds);
+            }
+            return b;
+        }
+
+        /// Instantiate an FBX model under parent, scaled so its height matches targetHeight
+        /// and its feet sit at local y=0.
+        static GameObject AddModel(GameObject parent, string modelName, float targetHeight)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(ModelDir + modelName + ".fbx");
+            if (asset == null)
+            {
+                Debug.LogError("[Moba] Model not found: " + modelName);
+                return null;
+            }
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(asset);
+            inst.transform.SetParent(parent.transform, false);
+            var b = ModelBounds(inst);
+            float s = targetHeight / Mathf.Max(0.01f, b.size.y);
+            inst.transform.localScale = Vector3.one * s;
+            b = ModelBounds(inst);
+            inst.transform.localPosition = new Vector3(0f, -b.min.y, 0f);
+            return inst;
+        }
+
+        /// Build an AnimatorController from the FBX's own clips (Idle/Run + attack)
+        /// and attach it to the model instance.
+        static void AttachAnimator(GameObject modelInst, string fbxName, string attackKey)
+        {
+            string fbxPath = ModelDir + fbxName + ".fbx";
+            var clips = AssetDatabase.LoadAllAssetsAtPath(fbxPath).OfType<AnimationClip>()
+                .Where(c => !c.name.StartsWith("__preview")).ToList();
+            AnimationClip Find(string key) =>
+                clips.FirstOrDefault(c => c.name.ToLower().Contains(key.ToLower()));
+            var idle = Find("Idle");
+            var run = Find("Run") ?? Find("Walk");
+            var attack = Find(attackKey) ?? Find("Punch") ?? Find("Bite");
+            if (idle == null || run == null) return;
+
+            Directory.CreateDirectory("Assets/Anim");
+            string ctrlPath = "Assets/Anim/" + fbxName + ".controller";
+            AssetDatabase.DeleteAsset(ctrlPath);
+            var ctrl = AnimatorController.CreateAnimatorControllerAtPath(ctrlPath);
+            ctrl.AddParameter("Speed", AnimatorControllerParameterType.Float);
+            ctrl.AddParameter("Attack", AnimatorControllerParameterType.Trigger);
+            var sm = ctrl.layers[0].stateMachine;
+            var sIdle = sm.AddState("Idle");
+            sIdle.motion = idle;
+            var sRun = sm.AddState("Run");
+            sRun.motion = run;
+            sm.defaultState = sIdle;
+            var toRun = sIdle.AddTransition(sRun);
+            toRun.AddCondition(AnimatorConditionMode.Greater, 0.5f, "Speed");
+            toRun.hasExitTime = false;
+            toRun.duration = 0.12f;
+            var toIdle = sRun.AddTransition(sIdle);
+            toIdle.AddCondition(AnimatorConditionMode.Less, 0.5f, "Speed");
+            toIdle.hasExitTime = false;
+            toIdle.duration = 0.12f;
+            if (attack != null)
+            {
+                var sAtk = sm.AddState("Attack");
+                sAtk.motion = attack;
+                var anyToAtk = sm.AddAnyStateTransition(sAtk);
+                anyToAtk.AddCondition(AnimatorConditionMode.If, 0f, "Attack");
+                anyToAtk.hasExitTime = false;
+                anyToAtk.duration = 0.05f;
+                var atkOut = sAtk.AddTransition(sIdle);
+                atkOut.hasExitTime = true;
+                atkOut.exitTime = 0.85f;
+                atkOut.duration = 0.1f;
+            }
+
+            var animator = modelInst.GetComponent<Animator>();
+            if (animator == null) animator = modelInst.AddComponent<Animator>();
+            animator.runtimeAnimatorController = ctrl;
+            animator.applyRootMotion = false;
+        }
+
+        static void AddTeamRing(GameObject root, float radius)
+        {
+            var ring = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.06f, 0f),
+                new Vector3(radius * 2f, 0.04f, radius * 2f));
+            ring.AddComponent<TeamTint>();
+        }
+
         // ============================== PREFABS ==============================
 
         static GameObject BuildHeroPrefab()
@@ -78,120 +207,38 @@ namespace Moba.EditorTools
             var visual = new GameObject("Visual");
             visual.transform.SetParent(root.transform, false);
 
-            // ---- shared mage figure: robe tiers, torso, head (no boxes anywhere) ----
-            var robe1 = AddPart(visual, PrimitiveType.Cylinder, new Vector3(0f, 0.3f, 0f),
-                new Vector3(1.05f, 0.3f, 1.05f));
-            robe1.AddComponent<TeamTint>();
-            var robe2 = AddPart(visual, PrimitiveType.Cylinder, new Vector3(0f, 0.78f, 0f),
-                new Vector3(0.85f, 0.26f, 0.85f));
-            robe2.AddComponent<TeamTint>();
-            var torso = AddPart(visual, PrimitiveType.Capsule, new Vector3(0f, 1.25f, 0f),
-                new Vector3(0.72f, 0.45f, 0.72f));
-            torso.AddComponent<TeamTint>();
-            foreach (int sx in new[] { -1, 1 }) // shoulders
-            {
-                var sh = AddPart(visual, PrimitiveType.Sphere,
-                    new Vector3(sx * 0.42f, 1.52f, 0f), Vector3.one * 0.34f);
-                sh.AddComponent<TeamTint>();
-            }
-            var head = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 1.95f, 0f),
-                Vector3.one * 0.62f);
-            SetColor(head, new Color(0.87f, 0.74f, 0.62f));
-            foreach (int sx in new[] { -1, 1 }) // glowing eyes mark the facing direction
-            {
-                var eye = AddPart(visual, PrimitiveType.Sphere,
-                    new Vector3(sx * 0.13f, 2.0f, 0.26f), Vector3.one * 0.1f);
-                SetColor(eye, new Color(0.9f, 0.95f, 1f), 1.8f);
-            }
-            foreach (int sx in new[] { -1, 1 }) // arms reaching towards the staff
-            {
-                var arm = AddPart(visual, PrimitiveType.Capsule,
-                    new Vector3(sx * 0.48f, 1.22f, 0.14f), new Vector3(0.17f, 0.3f, 0.17f));
-                arm.transform.localRotation = Quaternion.Euler(30f, 0f, sx * -16f);
-                arm.AddComponent<TeamTint>();
-                var hand = AddPart(visual, PrimitiveType.Sphere,
-                    new Vector3(sx * 0.55f, 0.95f, 0.3f), Vector3.one * 0.17f);
-                SetColor(hand, new Color(0.87f, 0.74f, 0.62f));
-            }
-            var belt = AddPart(visual, PrimitiveType.Cylinder, new Vector3(0f, 0.98f, 0f),
-                new Vector3(0.78f, 0.05f, 0.78f));
-            SetColor(belt, new Color(0.5f, 0.36f, 0.18f), 0.4f);
-
-            // ---- Xardaras: fire mage (wizard hat, cyan orb, fire staff) ----
+            // ready-made rigged mages (Quaternius, CC0) + floating skill orb per kind
             var kx = new GameObject("KindX");
             kx.transform.SetParent(visual.transform, false);
-            var hatBrim = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 2.22f, 0f),
-                new Vector3(0.95f, 0.06f, 0.95f));
-            SetColor(hatBrim, new Color(0.2f, 0.25f, 0.62f));
-            var hatTop = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 2.46f, 0f),
-                new Vector3(0.46f, 0.24f, 0.46f));
-            SetColor(hatTop, new Color(0.24f, 0.3f, 0.7f));
-            var hatMid = AddPart(kx, PrimitiveType.Cylinder, new Vector3(0f, 2.68f, 0f),
-                new Vector3(0.28f, 0.16f, 0.28f));
-            SetColor(hatMid, new Color(0.26f, 0.32f, 0.74f));
-            var hatTip = AddPart(kx, PrimitiveType.Sphere, new Vector3(0f, 2.88f, 0f),
-                Vector3.one * 0.2f);
-            SetColor(hatTip, new Color(0.55f, 0.8f, 1f), 1.6f);
-            var beard = AddPart(kx, PrimitiveType.Capsule, new Vector3(0f, 1.62f, 0.2f),
-                new Vector3(0.34f, 0.26f, 0.22f));
-            SetColor(beard, new Color(0.82f, 0.82f, 0.8f));
-            var orbX = AddPart(kx, PrimitiveType.Sphere, new Vector3(0.62f, 1.8f, 0.1f),
-                Vector3.one * 0.28f);
-            SetColor(orbX, new Color(0.45f, 0.8f, 1f), 1.8f);
+            var wizard = AddModel(kx, "Wizard", 2.25f);
+            AttachAnimator(wizard, "Wizard", "Shoot_OneHanded");
+            var orbX = AddPart(kx, PrimitiveType.Sphere, new Vector3(0.62f, 1.85f, 0.1f),
+                Vector3.one * 0.26f);
+            SetColor(orbX, new Color(1f, 0.55f, 0.15f), 2f);
             AddIdle(orbX, 0.14f, 2.4f, 90f, 0.08f);
-            BuildStaff(kx, new Color(0.4f, 0.26f, 0.16f), new Color(1f, 0.55f, 0.15f));
 
-            // ---- Belial: dark mage (curved horns, cloak, red orb) ----
             var kb = new GameObject("KindB");
             kb.transform.SetParent(visual.transform, false);
-            foreach (int sx in new[] { -1, 1 })
-            {
-                var horn = AddPart(kb, PrimitiveType.Capsule, new Vector3(sx * 0.3f, 2.42f, 0f),
-                    new Vector3(0.14f, 0.3f, 0.14f));
-                horn.transform.localRotation = Quaternion.Euler(0f, 0f, sx * -26f);
-                SetColor(horn, new Color(0.42f, 0.12f, 0.12f));
-                var hornTip = AddPart(kb, PrimitiveType.Sphere,
-                    new Vector3(sx * 0.43f, 2.66f, 0f), Vector3.one * 0.13f);
-                SetColor(hornTip, new Color(1f, 0.35f, 0.2f), 1.8f);
-            }
-            var cloak = AddPart(kb, PrimitiveType.Capsule, new Vector3(0f, 1.1f, -0.42f),
-                new Vector3(0.95f, 0.85f, 0.22f));
-            SetColor(cloak, new Color(0.16f, 0.08f, 0.14f));
-            var orbB = AddPart(kb, PrimitiveType.Sphere, new Vector3(0.62f, 1.8f, 0.1f),
-                Vector3.one * 0.3f);
+            var witch = AddModel(kb, "Witch", 2.25f);
+            AttachAnimator(witch, "Witch", "Shoot_OneHanded");
+            var orbB = AddPart(kb, PrimitiveType.Sphere, new Vector3(0.62f, 1.85f, 0.1f),
+                Vector3.one * 0.28f);
             SetColor(orbB, new Color(0.9f, 0.15f, 0.3f), 2f);
             AddIdle(orbB, 0.16f, 2f, -110f, 0.1f);
-            BuildStaff(kb, new Color(0.12f, 0.08f, 0.12f), new Color(0.7f, 0.2f, 1f));
             kb.SetActive(false);
 
-            // ---- Adanos: water mage (ice crown, frost orbs, water staff) ----
             var ka = new GameObject("KindA");
             ka.transform.SetParent(visual.transform, false);
-            for (int i = 0; i < 5; i++) // crown of ice spikes
-            {
-                float a = (i - 2) * 0.5f;
-                var spike = AddPart(ka, PrimitiveType.Capsule,
-                    new Vector3(Mathf.Sin(a) * 0.3f, 2.38f + (i % 2 == 0 ? 0.1f : 0f),
-                        Mathf.Cos(a) * 0.12f - 0.02f),
-                    new Vector3(0.09f, 0.22f, 0.09f));
-                spike.transform.localRotation = Quaternion.Euler(0f, 0f, -a * 30f);
-                SetColor(spike, new Color(0.75f, 0.92f, 1f), 1.2f);
-            }
-            var hood = AddPart(ka, PrimitiveType.Sphere, new Vector3(0f, 2.05f, -0.08f),
-                new Vector3(0.72f, 0.6f, 0.66f));
-            SetColor(hood, new Color(0.2f, 0.45f, 0.66f));
-            var orbA = AddPart(ka, PrimitiveType.Sphere, new Vector3(0.62f, 1.8f, 0.1f),
-                Vector3.one * 0.28f);
+            var elf = AddModel(ka, "Elf", 2.25f);
+            AttachAnimator(elf, "Elf", "Shoot_OneHanded");
+            var orbA = AddPart(ka, PrimitiveType.Sphere, new Vector3(0.62f, 1.85f, 0.1f),
+                Vector3.one * 0.26f);
             SetColor(orbA, new Color(0.45f, 0.9f, 1f), 2f);
             AddIdle(orbA, 0.15f, 2.6f, 120f, 0.1f);
-            var droplet = AddPart(ka, PrimitiveType.Sphere, new Vector3(-0.62f, 2.05f, 0.05f),
-                Vector3.one * 0.16f);
-            SetColor(droplet, new Color(0.6f, 0.95f, 1f), 1.6f);
-            AddIdle(droplet, 0.2f, 3.2f, -160f, 0.12f);
-            BuildStaff(ka, new Color(0.16f, 0.3f, 0.42f), new Color(0.35f, 0.85f, 1f));
             ka.SetActive(false);
 
-            AddHealthBar(root, 2.6f, 1.7f);
+            AddTeamRing(root, 0.72f);
+            AddHealthBar(root, 2.9f, 1.7f);
 
             root.AddComponent<NetworkObject>();
             var nt = root.AddComponent<ClientAuthoritativeNetworkTransform>();
@@ -208,52 +255,12 @@ namespace Moba.EditorTools
             var visual = new GameObject("Visual");
             visual.transform.SetParent(root.transform, false);
 
-            // little lava imp
-            var body = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 0.52f, 0f),
-                new Vector3(0.78f, 0.66f, 0.78f));
-            body.AddComponent<TeamTint>();
-            foreach (int sx in new[] { -1, 1 }) // stubby legs
-            {
-                var leg = AddPart(visual, PrimitiveType.Capsule,
-                    new Vector3(sx * 0.2f, 0.16f, 0f), new Vector3(0.16f, 0.16f, 0.16f));
-                SetColor(leg, new Color(0.2f, 0.16f, 0.18f));
-            }
-            foreach (int sx in new[] { -1, 1 }) // little arms
-            {
-                var arm = AddPart(visual, PrimitiveType.Capsule,
-                    new Vector3(sx * 0.42f, 0.6f, 0.1f), new Vector3(0.13f, 0.2f, 0.13f));
-                arm.transform.localRotation = Quaternion.Euler(35f, 0f, sx * -30f);
-                arm.AddComponent<TeamTint>();
-            }
-            var head = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 1.05f, 0.08f),
-                Vector3.one * 0.46f);
-            SetColor(head, new Color(0.22f, 0.18f, 0.2f));
-            foreach (int sx in new[] { -1, 1 }) // tiny horns
-            {
-                var horn = AddPart(visual, PrimitiveType.Capsule,
-                    new Vector3(sx * 0.15f, 1.32f, 0.02f), new Vector3(0.07f, 0.12f, 0.07f));
-                horn.transform.localRotation = Quaternion.Euler(0f, 0f, sx * -22f);
-                SetColor(horn, new Color(0.5f, 0.2f, 0.16f));
-            }
-            foreach (int sx in new[] { -1, 1 }) // glowing ember eyes
-            {
-                var eye = AddPart(visual, PrimitiveType.Sphere,
-                    new Vector3(sx * 0.1f, 1.1f, 0.28f), Vector3.one * 0.1f);
-                SetColor(eye, new Color(1f, 0.5f, 0.1f), 2.5f);
-            }
-            var mouth = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 0.95f, 0.3f),
-                new Vector3(0.14f, 0.07f, 0.08f));
-            SetColor(mouth, new Color(1f, 0.4f, 0.1f), 2f);
-            // ember tail
-            for (int i = 0; i < 3; i++)
-            {
-                var seg = AddPart(visual, PrimitiveType.Sphere,
-                    new Vector3(0f, 0.45f - i * 0.1f, -0.42f - i * 0.18f),
-                    Vector3.one * (0.18f - i * 0.04f));
-                SetColor(seg, new Color(1f, 0.45f + 0.15f * i, 0.12f), 1.4f);
-            }
+            // ready-made animated monster (Quaternius, CC0)
+            var blob = AddModel(visual, "GreenSpikyBlob", 1.2f);
+            AttachAnimator(blob, "GreenSpikyBlob", "Bite");
 
-            AddHealthBar(root, 1.7f, 1.1f);
+            AddTeamRing(root, 0.55f);
+            AddHealthBar(root, 1.8f, 1.1f);
 
             root.AddComponent<NetworkObject>();
             var nt = root.AddComponent<NetworkTransform>();
@@ -267,37 +274,22 @@ namespace Moba.EditorTools
         static void BuildTowerPrefab()
         {
             var root = new GameObject("Tower");
-            var baseTier = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.25f, 0f),
-                new Vector3(5.2f, 0.25f, 5.2f));
+            var baseTier = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.2f, 0f),
+                new Vector3(5.2f, 0.2f, 5.2f));
             SetColor(baseTier, new Color(0.38f, 0.34f, 0.38f), 0f, "Textures/obsidian", 2f);
-            var teamRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.55f, 0f),
-                new Vector3(4.4f, 0.1f, 4.4f));
-            teamRing.AddComponent<TeamTint>();
-            for (int i = 0; i < 4; i++) // corner pillars
-            {
-                float a = (i + 0.5f) / 4f * Mathf.PI * 2f;
-                var p = AddPart(root, PrimitiveType.Cylinder,
-                    new Vector3(Mathf.Cos(a) * 1.75f, 1.4f, Mathf.Sin(a) * 1.75f),
-                    new Vector3(0.7f, 1.2f, 0.7f));
-                SetColor(p, new Color(0.42f, 0.38f, 0.44f), 0f, "Textures/obsidian", 1.5f);
-                var cap = AddPart(root, PrimitiveType.Sphere,
-                    new Vector3(Mathf.Cos(a) * 1.75f, 2.75f, Mathf.Sin(a) * 1.75f),
-                    Vector3.one * 0.4f);
-                SetColor(cap, new Color(1f, 0.5f, 0.15f), 1.6f);
-            }
-            var spire = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 2.6f, 0f),
-                new Vector3(2.1f, 1.5f, 2.1f));
-            SetColor(spire, new Color(0.45f, 0.4f, 0.46f), 0f, "Textures/obsidian", 2f);
-            var lavaRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 4.35f, 0f),
-                new Vector3(3.2f, 0.12f, 3.2f));
+            // ready-made watchtower model (Quaternius, CC0)
+            AddModel(root, "WatchTower_SecondAge_Level3", 5.4f);
+            var lavaRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 4.5f, 0f),
+                new Vector3(3.4f, 0.1f, 3.4f));
             SetColor(lavaRing, new Color(1f, 0.55f, 0.2f), 1.5f, "Textures/lava", 1f);
             AddIdle(lavaRing, 0.08f, 1.4f, 70f, 0f);
-            var orb = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 5.2f, 0f),
-                Vector3.one * 1.25f);
+            var orb = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 5.9f, 0f),
+                Vector3.one * 1.1f);
             orb.AddComponent<TeamTint>();
             AddIdle(orb, 0.12f, 1.6f, 45f, 0.06f);
+            AddTeamRing(root, 2.5f);
 
-            AddHealthBar(root, 6.1f, 2.2f);
+            AddHealthBar(root, 6.6f, 2.2f);
 
             root.AddComponent<NetworkObject>();
             root.AddComponent<Tower>();
@@ -325,11 +317,15 @@ namespace Moba.EditorTools
                     Vector3.one * 0.5f);
                 cap.AddComponent<TeamTint>();
             }
-            // the great crystal
-            var crystal = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 3.2f, 0f),
-                new Vector3(1.7f, 2.8f, 1.7f));
-            crystal.AddComponent<TeamTint>();
-            AddIdle(crystal, 0.2f, 1.2f, 30f, 0.05f);
+            // the great crystal: ready-made model (Quaternius, CC0), tinted to team color
+            var crystalHolder = new GameObject("CrystalHolder");
+            crystalHolder.transform.SetParent(root.transform, false);
+            crystalHolder.transform.localPosition = new Vector3(0f, 0.8f, 0f);
+            var crystal = AddModel(crystalHolder, "Crystal2", 4.2f);
+            if (crystal != null)
+                foreach (var r in crystal.GetComponentsInChildren<Renderer>(true))
+                    r.gameObject.AddComponent<TeamTint>();
+            AddIdle(crystalHolder, 0.2f, 1.2f, 30f, 0.04f);
             // orbiting shards
             var orbit = new GameObject("Orbit");
             orbit.transform.SetParent(root.transform, false);

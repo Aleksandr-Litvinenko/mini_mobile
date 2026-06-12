@@ -2,12 +2,13 @@ using UnityEngine;
 
 namespace Moba
 {
-    /// Procedural animation: walk bobbing, idle breathing and attack lunges.
-    /// Animates the "Visual" child so health bars stay still. Purely local.
+    /// Drives skeletal Animators (ready-made rigged models) when present,
+    /// otherwise falls back to procedural bobbing/lunges. Purely local.
     public class UnitAnimator : MonoBehaviour
     {
         public Transform body;
 
+        Animator[] _animators;
         Vector3 _basePos;
         Quaternion _baseRot;
         Vector3 _lastPos;
@@ -17,6 +18,22 @@ namespace Moba
         public void TriggerAttack()
         {
             _attackT = 1f;
+            RefreshAnimators();
+            foreach (var a in _animators)
+                if (a != null && a.isActiveAndEnabled)
+                    a.SetTrigger("Attack");
+        }
+
+        void RefreshAnimators()
+        {
+            if (_animators == null)
+            {
+                var list = new System.Collections.Generic.List<Animator>();
+                foreach (var a in GetComponentsInChildren<Animator>(true))
+                    if (a.runtimeAnimatorController != null)
+                        list.Add(a);
+                _animators = list.ToArray();
+            }
         }
 
         void Start()
@@ -32,6 +49,7 @@ namespace Moba
                 _baseRot = body.localRotation;
             }
             _lastPos = transform.position;
+            RefreshAnimators();
         }
 
         void Update()
@@ -42,6 +60,16 @@ namespace Moba
             _lastPos = transform.position;
             float speed = new Vector2(vel.x, vel.z).magnitude;
             bool moving = speed > 0.6f;
+
+            RefreshAnimators();
+            bool hasSkeletal = false;
+            foreach (var a in _animators)
+                if (a != null && a.isActiveAndEnabled)
+                {
+                    a.SetFloat("Speed", speed);
+                    hasSkeletal = true;
+                }
+            if (hasSkeletal) return; // the rig handles idle/run/attack
 
             _phase += dt * (moving ? 10f : 2f);
             float bob = moving ? Mathf.Abs(Mathf.Sin(_phase)) * 0.14f : Mathf.Sin(_phase) * 0.03f;

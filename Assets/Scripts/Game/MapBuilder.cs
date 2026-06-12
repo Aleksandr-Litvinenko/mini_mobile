@@ -133,6 +133,9 @@ namespace Moba
                      })
                 BuildBoulders(root, rp);
 
+            // scorched forest along the walls
+            BuildTrees(root);
+
             // the two volcanoes the arena sits between
             BuildVolcano(root, new Vector3(-52f, 0f, 36f));
             BuildVolcano(root, new Vector3(52f, 0f, 36f));
@@ -194,19 +197,61 @@ namespace Moba
         static void BuildBoulders(GameObject root, Vector3 center)
         {
             var rnd = new System.Random((int)(center.x * 13 + center.z * 7));
-            var rockC = new Color(0.46f, 0.41f, 0.4f);
+            // ready-made rock models (Quaternius, CC0)
             int n = 2 + rnd.Next(2);
             for (int i = 0; i < n; i++)
             {
-                float r = 0.9f + (float)rnd.NextDouble() * 0.9f;
-                var off = new Vector3(((float)rnd.NextDouble() - 0.5f) * 2.2f, r * 0.55f,
-                    ((float)rnd.NextDouble() - 0.5f) * 2.2f);
-                var rock = Sphere(root, "Boulder", center + off, r * 2f, rockC, 0f, 0.7f);
-                rock.transform.rotation = Quaternion.Euler((float)rnd.NextDouble() * 30f,
-                    (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 30f);
-                SetTexture(rock, "Textures/rock", 1.5f);
+                var off = new Vector3(((float)rnd.NextDouble() - 0.5f) * 2.4f, 0f,
+                    ((float)rnd.NextDouble() - 0.5f) * 2.4f);
+                SpawnModel(root, rnd.Next(2) == 0 ? "Rock1" : "Rock2", center + off,
+                    1.5f + (float)rnd.NextDouble() * 1.2f, (float)rnd.NextDouble() * 360f);
             }
             Obstacles.Add(new Obstacle { pos = new Vector2(center.x, center.z), radius = 1.9f });
+        }
+
+        static void BuildTrees(GameObject root)
+        {
+            var rnd = new System.Random(99);
+            foreach (float side in new[] { -1f, 1f })
+                for (float x = -48f; x <= 48f; x += 9.5f)
+                {
+                    if (Mathf.Abs(x) < 7f) continue; // keep mid bushes clear
+                    float z = side * (16.6f + (float)rnd.NextDouble() * 1.6f);
+                    string model = rnd.Next(2) == 0 ? "Tree1" : "PineTree";
+                    SpawnModel(root, model, new Vector3(x, 0f, z),
+                        4.4f + (float)rnd.NextDouble() * 2f, (float)rnd.NextDouble() * 360f);
+                    Obstacles.Add(new Obstacle { pos = new Vector2(x, z), radius = 0.9f });
+                }
+        }
+
+        /// Instantiate a Resources/Models FBX at pos, scaled to targetHeight, feet at y=0.
+        static GameObject SpawnModel(GameObject root, string model, Vector3 pos,
+            float targetHeight, float yaw)
+        {
+            var asset = Resources.Load<GameObject>("Models/" + model);
+            if (asset == null) return null;
+            var inst = Object.Instantiate(asset, root.transform);
+            inst.transform.position = Vector3.zero;
+            inst.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            var b = ModelBounds(inst);
+            float s = targetHeight / Mathf.Max(0.01f, b.size.y);
+            inst.transform.localScale = Vector3.one * s;
+            b = ModelBounds(inst);
+            inst.transform.position = new Vector3(pos.x, pos.y - b.min.y, pos.z);
+            return inst;
+        }
+
+        static Bounds ModelBounds(GameObject inst)
+        {
+            var rends = inst.GetComponentsInChildren<Renderer>(true);
+            var b = new Bounds(inst.transform.position, Vector3.zero);
+            bool first = true;
+            foreach (var r in rends)
+            {
+                if (first) { b = r.bounds; first = false; }
+                else b.Encapsulate(r.bounds);
+            }
+            return b;
         }
 
         static void BuildVolcano(GameObject root, Vector3 basePos)

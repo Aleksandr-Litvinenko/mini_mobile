@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4535879280763768083}
-  - component: {fileID: 6548884070493143308}
+  - component: {fileID: 207011643755254058}
   m_Layer: 0
   m_Name: FxWaterBlast
   m_TagString: Untagged
@@ -34,7 +34,7 @@ Transform:
   - {fileID: 4739644177809571922}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6548884070493143308
+--- !u!114 &207011643755254058
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

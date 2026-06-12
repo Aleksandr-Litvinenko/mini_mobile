@@ -64,6 +64,11 @@ namespace Moba
                 var r = tint.GetComponent<Renderer>();
                 if (r != null) r.material.color = c;
             }
+            // ready-made character models: tint their "Clothes" material to the team color
+            foreach (var r in GetComponentsInChildren<Renderer>(true))
+                foreach (var m in r.materials)
+                    if (m != null && m.name.Contains("Clothes"))
+                        m.color = Color.Lerp(c, Color.white, 0.15f);
         }
 
         protected Renderer[] Renderers
