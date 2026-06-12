@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "moba-host",
+      "runtimeExecutable": "Builds/MobaGame.app/Contents/MacOS/MobaGame",
+      "runtimeArgs": ["-host"],
+      "port": 7777
+    },
+    {
+      "name": "moba-host-headless",
+      "runtimeExecutable": "Builds/MobaGame.app/Contents/MacOS/MobaGame",
+      "runtimeArgs": ["-batchmode", "-nographics", "-host", "-logFile", "/tmp/moba_host.log"],
+      "port": 7777
+    },
+    {
+      "name": "moba-client-localhost",
+      "runtimeExecutable": "Builds/MobaGame.app/Contents/MacOS/MobaGame",
+      "runtimeArgs": ["-join", "127.0.0.1"]
+    }
+  ]
+}
