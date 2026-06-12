@@ -90,16 +90,16 @@ namespace Moba
             RenderSettings.fogDensity = 0.005f;
 
             // ground and lane (flat cylinders, no cubes anywhere)
-            Cylinder(root, "Ground", new Vector3(0f, -0.18f, 0f), new Vector3(118f, 0.15f, 50f),
-                new Color(0.5f, 0.45f, 0.42f), 0f, "Textures/rock", 11f);
-            Cylinder(root, "Lane", new Vector3(0f, -0.12f, 0f), new Vector3(97f, 0.14f, 11.5f),
-                new Color(0.75f, 0.66f, 0.58f), 0f, "Textures/lane", 7f);
+            Cylinder(root, "Ground", new Vector3(0f, -0.18f, 0f), new Vector3(136f, 0.15f, 58f),
+                new Color(0.5f, 0.45f, 0.42f), 0f, "Textures/rock", 12f);
+            Cylinder(root, "Lane", new Vector3(0f, -0.12f, 0f), new Vector3(112f, 0.14f, 13.2f),
+                new Color(0.75f, 0.66f, 0.58f), 0f, "Textures/lane", 8f);
 
             // basalt column walls around the arena
-            BuildColumnWall(root, -49.5f, 49.5f, 17.6f, true);
-            BuildColumnWall(root, -49.5f, 49.5f, -17.6f, true);
-            BuildColumnWall(root, -17f, 17f, 49f, false);
-            BuildColumnWall(root, -17f, 17f, -49f, false);
+            BuildColumnWall(root, -57f, 57f, 20.2f, true);
+            BuildColumnWall(root, -57f, 57f, -20.2f, true);
+            BuildColumnWall(root, -19.5f, 19.5f, 56.4f, false);
+            BuildColumnWall(root, -19.5f, 19.5f, -56.4f, false);
 
             // base platforms + fountains
             foreach (Team t in new[] { Team.Blue, Team.Red })
@@ -108,34 +108,34 @@ namespace Moba
                 c.a = 1f;
                 var pos = GameConstants.BasePos(t);
                 Cylinder(root, "Platform" + t, pos + Vector3.down * 0.05f,
-                    new Vector3(13f, 0.1f, 13f), c);
+                    new Vector3(15f, 0.1f, 15f), c);
                 Cylinder(root, "Fountain" + t, pos + Vector3.down * 0.01f,
-                    new Vector3(5f, 0.12f, 5f), GameConstants.TeamColor(t), 0.8f);
+                    new Vector3(5.6f, 0.12f, 5.6f), GameConstants.TeamColor(t), 0.8f);
                 ParticleFx.Spawn("FxSparkles", pos + Vector3.up * 0.3f, root.transform);
             }
 
-            // scorched bushes: clusters of squashed spheres (stealth zones)
+            // leafy bushes (stealth zones)
             foreach (var bp in new[]
                      {
-                         new Vector3(-12f, 0f, 7.8f), new Vector3(12f, 0f, 7.8f),
-                         new Vector3(-12f, 0f, -7.8f), new Vector3(12f, 0f, -7.8f),
-                         new Vector3(-27f, 0f, 7.8f), new Vector3(27f, 0f, -7.8f)
+                         new Vector3(-13.8f, 0f, 9f), new Vector3(13.8f, 0f, 9f),
+                         new Vector3(-13.8f, 0f, -9f), new Vector3(13.8f, 0f, -9f),
+                         new Vector3(-31f, 0f, 9f), new Vector3(31f, 0f, -9f)
                      })
                 BuildBush(root, bp);
 
             // boulder clusters off the lane (impassable)
             foreach (var rp in new[]
                      {
-                         new Vector3(-20f, 0f, 12.5f), new Vector3(20f, 0f, -12.5f),
-                         new Vector3(-34f, 0f, -11f), new Vector3(34f, 0f, 11f),
-                         new Vector3(0f, 0f, 13.5f), new Vector3(0f, 0f, -13.5f),
-                         new Vector3(-6f, 0f, 11.8f), new Vector3(6f, 0f, -11.8f)
+                         new Vector3(-23f, 0f, 14.4f), new Vector3(23f, 0f, -14.4f),
+                         new Vector3(-39f, 0f, -12.6f), new Vector3(39f, 0f, 12.6f),
+                         new Vector3(0f, 0f, 15.5f), new Vector3(0f, 0f, -15.5f),
+                         new Vector3(-7f, 0f, 13.6f), new Vector3(7f, 0f, -13.6f)
                      })
                 BuildBoulders(root, rp);
 
             // the two volcanoes the arena sits between
-            BuildVolcano(root, new Vector3(-45f, 0f, 31f));
-            BuildVolcano(root, new Vector3(45f, 0f, 31f));
+            BuildVolcano(root, new Vector3(-52f, 0f, 36f));
+            BuildVolcano(root, new Vector3(52f, 0f, 36f));
 
             // drifting ash and embers above the battlefield
             var ash = ParticleFx.Spawn("FxAsh", new Vector3(0f, 12f, 0f), root.transform);
@@ -165,14 +165,30 @@ namespace Moba
 
         static void BuildBush(GameObject root, Vector3 center)
         {
-            var leaf = new Color(0.24f, 0.38f, 0.17f);
-            var leafDark = new Color(0.18f, 0.3f, 0.13f);
-            Sphere(root, "Bush", center + new Vector3(0f, 0.35f, 0f), 2.6f, leafDark, 0f, 0.45f);
-            Sphere(root, "Bush", center + new Vector3(-1.5f, 0.3f, 0.4f), 2f, leaf, 0f, 0.5f);
-            Sphere(root, "Bush", center + new Vector3(1.5f, 0.3f, -0.3f), 2f, leaf, 0f, 0.5f);
-            Sphere(root, "Bush", center + new Vector3(0.4f, 0.55f, 0.5f), 1.4f,
-                new Color(0.3f, 0.46f, 0.2f), 0f, 0.6f);
-            Bushes.Add(new Bounds(center + Vector3.up * 0.4f, new Vector3(5.4f, 2.5f, 3.4f)));
+            // a proper leafy bush: trunks + layered canopies from dark to light green
+            var rnd = new System.Random((int)(center.x * 31 + center.z * 17));
+            foreach (var off in new[] { new Vector3(-1f, 0f, 0.2f), new Vector3(0.9f, 0f, -0.3f) })
+                Cylinder(root, "BushTrunk", center + off + Vector3.up * 0.3f,
+                    new Vector3(0.3f, 0.35f, 0.3f), new Color(0.32f, 0.22f, 0.13f));
+            var dark = new Color(0.14f, 0.27f, 0.11f);
+            var mid = new Color(0.2f, 0.38f, 0.15f);
+            var light = new Color(0.3f, 0.5f, 0.2f);
+            for (int i = 0; i < 6; i++) // bottom canopy
+            {
+                float a = i / 6f * Mathf.PI * 2f;
+                Sphere(root, "BushLeaf", center + new Vector3(Mathf.Cos(a) * 1.7f, 0.55f,
+                        Mathf.Sin(a) * 1.1f), 1.7f + (float)rnd.NextDouble() * 0.5f, dark, 0f, 0.75f);
+            }
+            for (int i = 0; i < 4; i++) // middle
+            {
+                float a = i / 4f * Mathf.PI * 2f + 0.5f;
+                Sphere(root, "BushLeaf", center + new Vector3(Mathf.Cos(a) * 1.1f, 1.05f,
+                        Mathf.Sin(a) * 0.75f), 1.6f + (float)rnd.NextDouble() * 0.4f, mid, 0f, 0.8f);
+            }
+            Sphere(root, "BushLeaf", center + new Vector3(0f, 1.55f, 0f), 1.7f, light, 0f, 0.8f);
+            Sphere(root, "BushLeaf", center + new Vector3(0.6f, 1.45f, 0.4f), 1.1f,
+                new Color(0.36f, 0.56f, 0.24f), 0f, 0.85f);
+            Bushes.Add(new Bounds(center + Vector3.up * 0.6f, new Vector3(5.8f, 3.2f, 4f)));
         }
 
         static void BuildBoulders(GameObject root, Vector3 center)
@@ -217,11 +233,12 @@ namespace Moba
                 float ang = 35f + i * 80f + Random.Range(-15f, 15f);
                 var dir = Quaternion.Euler(0f, ang, 0f) * Vector3.forward;
                 var stream = Capsule(root, "LavaStream",
-                    basePos + dir * 10f + Vector3.up * (h * 0.45f),
-                    new Vector3(1.1f, 6.5f, 1.1f), new Color(1f, 0.55f, 0.2f), 1.4f);
+                    basePos + dir * 11f + Vector3.up * (h * 0.45f),
+                    new Vector3(1.2f, 7.2f, 1.2f), new Color(1f, 0.55f, 0.2f), 1.4f);
                 stream.transform.rotation = Quaternion.LookRotation(dir) *
                                             Quaternion.Euler(38f, 0f, 0f);
                 SetTexture(stream, "Textures/lava", 1f);
+                stream.AddComponent<UvScroller>().speed = new Vector2(0f, -0.25f);
             }
 
             ParticleFx.Spawn("FxSmoke", crater + Vector3.up * 0.6f, root.transform, 2.2f);

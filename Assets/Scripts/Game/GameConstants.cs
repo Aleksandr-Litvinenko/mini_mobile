@@ -11,16 +11,16 @@ namespace Moba
 
     public static class GameConstants
     {
-        // Map layout (lane runs along the X axis). Arena is ~100 x 36 units.
-        public const float ClampX = 47f;
-        public const float ClampZ = 16.2f;
-        public const float BaseX = 42f;
-        public const float Tower1X = 20f; // forward tower
-        public const float Tower2X = 32f; // inner tower
-        public const float HeroSpawnX = 38.5f;
-        public const float FountainRadius = 8f;
-        public const float MapHalfW = 50f; // minimap mapping
-        public const float MapHalfH = 18f;
+        // Map layout (lane runs along the X axis). Arena is ~115 x 42 units.
+        public const float ClampX = 54f;
+        public const float ClampZ = 18.6f;
+        public const float BaseX = 48.3f;
+        public const float Tower1X = 23f;   // forward tower
+        public const float Tower2X = 36.8f; // inner tower
+        public const float HeroSpawnX = 44.3f;
+        public const float FountainRadius = 9f;
+        public const float MapHalfW = 57.5f; // minimap mapping
+        public const float MapHalfH = 20.7f;
 
         public const ushort Port = 7777;
 

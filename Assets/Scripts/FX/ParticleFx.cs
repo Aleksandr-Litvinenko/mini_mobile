@@ -21,16 +21,24 @@ namespace Moba
         public static void SpawnOneShot(Vector3 pos, Color? tint = null)
         {
             var go = Spawn("FxBurstPs", pos);
-            if (go == null) return;
-            if (tint.HasValue)
+            if (go != null && tint.HasValue)
+                Tint(go, tint.Value);
+        }
+
+        public static void SpawnTinted(string name, Vector3 pos, Color tint, float scale = 1f)
+        {
+            var go = Spawn(name, pos, null, scale);
+            if (go != null)
+                Tint(go, tint);
+        }
+
+        static void Tint(GameObject go, Color tint)
+        {
+            foreach (var ps in go.GetComponentsInChildren<ParticleSystem>())
             {
-                var ps = go.GetComponent<ParticleSystem>();
-                if (ps != null)
-                {
-                    var main = ps.main;
-                    main.startColor = new ParticleSystem.MinMaxGradient(
-                        tint.Value, Color.Lerp(tint.Value, Color.white, 0.5f));
-                }
+                var main = ps.main;
+                main.startColor = new ParticleSystem.MinMaxGradient(
+                    tint, Color.Lerp(tint, Color.white, 0.5f));
             }
         }
     }

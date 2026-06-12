@@ -6,8 +6,8 @@ namespace Moba
     /// Takes heavily reduced damage while the team's tower still stands.
     public class BaseCore : UnitBase
     {
-        public override float HealthBarHeight => 4.6f;
-        public override float BodyRadius => 2.6f;
+        public override float HealthBarHeight => 5.8f;
+        public override float BodyRadius => 3f;
 
         protected override float ModifyIncomingDamage(float amount)
         {

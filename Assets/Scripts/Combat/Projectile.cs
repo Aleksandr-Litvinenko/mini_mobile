@@ -82,10 +82,18 @@ namespace Moba
             var c = GameConstants.TeamColor((Team)TeamId.Value);
             foreach (var r in GetComponentsInChildren<Renderer>())
             {
+                if (r is ParticleSystemRenderer) continue;
                 var m = r.material;
                 m.color = c;
                 m.EnableKeyword("_EMISSION");
                 m.SetColor("_EmissionColor", c * 1.6f);
+            }
+            // tint the spark trail too
+            foreach (var ps in GetComponentsInChildren<ParticleSystem>())
+            {
+                var main = ps.main;
+                main.startColor = new ParticleSystem.MinMaxGradient(
+                    c, Color.Lerp(c, Color.white, 0.6f));
             }
         }
 
@@ -160,7 +168,8 @@ namespace Moba
         [Rpc(SendTo.ClientsAndHost)]
         void HitFxRpc(Vector3 pos)
         {
-            FxBurst.Spawn(pos, GameConstants.TeamColor((Team)TeamId.Value), 0.9f, 0.2f);
+            ParticleFx.SpawnTinted("FxSparkBurst", pos,
+                GameConstants.TeamColor((Team)TeamId.Value), 0.6f);
         }
     }
 }

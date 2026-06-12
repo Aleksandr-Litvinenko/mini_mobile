@@ -13,8 +13,8 @@ namespace Moba
         UnitBase _target;
         float _nextShot;
 
-        public override float HealthBarHeight => 5.2f;
-        public override float BodyRadius => 1.3f;
+        public override float HealthBarHeight => 6.1f;
+        public override float BodyRadius => 1.45f;
 
         void Update()
         {

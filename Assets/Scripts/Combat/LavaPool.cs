@@ -94,15 +94,19 @@ namespace Moba
                 disc.localScale = new Vector3(r * 2f, 0.08f, r * 2f);
                 if (_discR != null)
                 {
-                    _discR.material.color = new Color(1f, 0.75f, 0.45f);
-                    _discR.material.SetColor("_EmissionColor",
-                        new Color(1f, 0.45f, 0.12f) * 1.6f);
+                    // boiling: scrolling texture + pulsing glow
+                    var m = _discR.material;
+                    m.color = new Color(1f, 0.75f, 0.45f);
+                    m.mainTextureOffset += new Vector2(0.04f, 0.09f) * Time.deltaTime;
+                    float pulse = 1.3f + Mathf.Sin(Time.time * 3.1f) * 0.45f;
+                    m.SetColor("_EmissionColor", new Color(1f, 0.45f, 0.12f) * pulse);
                 }
                 if (!_embersSpawned)
                 {
                     _embersSpawned = true;
                     ParticleFx.Spawn("FxEmbers", transform.position, transform, r / 1.4f);
-                    FxBurst.Spawn(transform.position, new Color(1f, 0.5f, 0.15f), r, 0.4f);
+                    ParticleFx.Spawn("FxFireBlast", transform.position, null, r / 4f);
+                    RingFx.Spawn(transform.position, new Color(1f, 0.5f, 0.15f), r, 0.6f);
                 }
             }
         }

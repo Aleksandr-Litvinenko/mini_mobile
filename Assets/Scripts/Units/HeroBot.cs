@@ -121,12 +121,16 @@ namespace Moba
                 }
             }
 
-            // shopping
+            // shopping + skill points
             if (Time.time >= _nextBuy)
             {
                 _nextBuy = Time.time + 4f;
                 for (int i = 0; i < 3; i++)
                     _h.BuyUpgradeRpc(i);
+                // priority: Q, then E, then W
+                foreach (int slot in new[] { 0, 2, 1 })
+                    if (_h.CanUpgradeSkill(slot))
+                        _h.UpgradeSkillRpc(slot);
             }
         }
 

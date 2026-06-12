@@ -36,8 +36,11 @@ namespace Moba
         bool _wasInSession;
         bool _showHelp;
         bool _confirmLeave;
+        bool _showSkillInfo;
         bool _stylesReady;
         float _scale = 1f;
+        string _tooltip;
+        Rect _tooltipAnchor;
 
         GUIStyle _title, _h1, _h2, _label, _small, _button, _bigButton, _warn;
         readonly Dictionary<string, Texture2D> _tex = new Dictionary<string, Texture2D>();
@@ -113,7 +116,8 @@ namespace Moba
                     _screen = _screen == MenuScreen.Setup ? MenuScreen.Mode : MenuScreen.Main;
             }
 
-            _scale = Mathf.Max(0.7f, Screen.height / 900f);
+            _scale = Mathf.Max(0.7f, Screen.height / 900f) *
+                     (Application.isMobilePlatform ? 1.25f : 1f);
             float vw = Screen.width / _scale;
             float vh = Screen.height / _scale;
             TouchHud.UpdateInput(_scale, vw, vh,
@@ -425,6 +429,27 @@ namespace Moba
             if (TouchHud.Enabled)
                 DrawTouchControls(w, h, hero);
 
+            // stealth indicator
+            if (!hero.Dead.Value && MapBuilder.BushIndex(hero.transform.position) >= 0)
+            {
+                var eye = Tex("eye");
+                float ix = w / 2f - 110;
+                if (eye != null)
+                    GUI.DrawTexture(new Rect(ix, h * 0.24f, 34, 34), eye, ScaleMode.ScaleToFit);
+                var prevC = GUI.color;
+                GUI.color = new Color(0.5f, 1f, 0.55f, 0.7f + Mathf.PingPong(Time.time, 0.3f));
+                GUI.Label(new Rect(ix + 40, h * 0.24f, 260, 34), "ВЫ СКРЫТЫ В КУСТАХ", _h2);
+                GUI.color = prevC;
+            }
+
+            if (hero.SkillPoints.Value > 0 && !TouchHud.Enabled)
+                GUI.Label(new Rect(w / 2f - 260, h - 196, 520, 24),
+                    "Очки навыков: " + hero.SkillPoints.Value + " — жмите «+» на иконке", _h2);
+
+            DrawTooltip(w, h);
+            if (_showSkillInfo)
+                DrawSkillInfo(w, h, hero);
+
             if (_confirmLeave)
             {
                 DrawPanel(new Rect(w / 2f - 180, h / 2f - 80, 360, 160));
@@ -492,13 +517,51 @@ namespace Moba
             y += 26;
             var k = hero.HeroType;
             DrawSkill(new Rect(cx - 230, y, 84, 84), "Q", HeroData.Skill(k, 0).icon,
-                hero.CdQUntil, hero.QCd, hero.QCost, hero, true);
+                hero.CdQUntil, hero.QCd, hero.QCost, hero, true, 0);
             DrawSkill(new Rect(cx - 130, y, 84, 84), "W", HeroData.Skill(k, 1).icon,
-                hero.CdWUntil, hero.WCd, hero.WCost, hero, true);
+                hero.CdWUntil, hero.WCd, hero.WCost, hero, true, 1);
             DrawSkill(new Rect(cx - 30, y, 84, 84), "E", HeroData.Skill(k, 2).icon,
-                hero.CdEUntil, hero.ECd, hero.ECost, hero, hero.UltReady);
+                hero.CdEUntil, hero.ECd, hero.ECost, hero, hero.UltReady, 2);
             DrawSkill(new Rect(cx + 70, y, 84, 84), "SPACE", "attack",
-                hero.CdAttackUntil, hero.AttackCooldown, 0f, hero, true);
+                hero.CdAttackUntil, hero.AttackCooldown, 0f, hero, true, -1);
+        }
+
+        void DrawTooltip(float w, float h)
+        {
+            if (string.IsNullOrEmpty(_tooltip)) return;
+            var size = _h2.CalcSize(new GUIContent(_tooltip));
+            float tw = Mathf.Max(size.x + 36, 260);
+            float th = size.y + 28;
+            float tx = Mathf.Clamp(_tooltipAnchor.x + _tooltipAnchor.width / 2f - tw / 2f,
+                10, w - tw - 10);
+            float ty = _tooltipAnchor.y - th - 10;
+            DrawPanel(new Rect(tx, ty, tw, th));
+            GUI.Label(new Rect(tx + 18, ty + 12, tw - 36, th - 24), _tooltip, _h2);
+            _tooltip = null;
+        }
+
+        void DrawSkillInfo(float w, float h, Hero hero)
+        {
+            var r = new Rect(w / 2f - 270, h * 0.16f, 540, 420);
+            DrawPanel(r);
+            GUI.Label(new Rect(r.x, r.y + 10, r.width, 32), "СПОСОБНОСТИ", _h1);
+            GUI.Label(new Rect(r.x, r.y + 42, r.width, 26),
+                "Очки навыков: " + hero.SkillPoints.Value, _h2);
+            for (int i = 0; i < 3; i++)
+            {
+                float sy = r.y + 76 + i * 102;
+                var icon = Tex(HeroData.Skill(hero.HeroType, i).icon);
+                if (icon != null)
+                    GUI.DrawTexture(new Rect(r.x + 18, sy, 64, 64), icon, ScaleMode.ScaleToFit);
+                GUI.Label(new Rect(r.x + 96, sy - 4, r.width - 190, 96),
+                    hero.SkillTooltip(i), _label);
+                if (hero.CanUpgradeSkill(i) &&
+                    GUI.Button(new Rect(r.x + r.width - 76, sy + 8, 58, 48), "+", _bigButton))
+                    hero.UpgradeSkillRpc(i);
+            }
+            if (GUI.Button(new Rect(r.x + r.width / 2f - 80, r.y + r.height - 50, 160, 40),
+                    "ЗАКРЫТЬ", _button))
+                _showSkillInfo = false;
         }
 
         void DrawTouchControls(float w, float h, Hero hero)
@@ -523,6 +586,13 @@ namespace Moba
             DrawTouchButton(TouchHud.ECenter, TouchHud.SkillRadius, HeroData.Skill(k, 2).icon,
                 hero.CdEUntil, hero.ECd, hero.UltReady && hero.Mana.Value >= hero.ECost);
             GUI.color = prev;
+
+            // skill info / upgrade panel toggle (touch can't hover)
+            string infoLabel = hero.SkillPoints.Value > 0
+                ? "НАВЫКИ +" + hero.SkillPoints.Value
+                : "НАВЫКИ";
+            if (GUI.Button(new Rect(w - 170, h * 0.32f, 150, 44), infoLabel, _button))
+                _showSkillInfo = !_showSkillInfo;
         }
 
         void DrawCircle(Vector2 c, float r, Color color)
@@ -556,7 +626,7 @@ namespace Moba
         }
 
         void DrawSkill(Rect r, string key, string iconName, float cdUntil, float cdTotal,
-            float manaCost, Hero hero, bool unlocked)
+            float manaCost, Hero hero, bool unlocked, int slot)
         {
             var icon = Tex(iconName);
             if (icon != null)
@@ -569,6 +639,28 @@ namespace Moba
             else
                 DrawPanel(r);
             GUI.Label(new Rect(r.x + 4, r.y + 2, r.width - 8, 20), key, _small);
+
+            // hover tooltip with live numbers
+            if (slot >= 0 && r.Contains(Event.current.mousePosition))
+            {
+                _tooltip = hero.SkillTooltip(slot);
+                _tooltipAnchor = r;
+            }
+            // skill level + upgrade button
+            if (slot >= 0)
+            {
+                GUI.Label(new Rect(r.x + 4, r.y + r.height - 22, 44, 20),
+                    "ур." + hero.GetSkillLevel(slot), _small);
+                if (hero.CanUpgradeSkill(slot))
+                {
+                    var plus = new Rect(r.x + r.width - 30, r.y - 6, 34, 34);
+                    var prevC = GUI.color;
+                    GUI.color = new Color(0.5f, 1f, 0.5f, 0.8f + Mathf.PingPong(Time.time * 2f, 0.2f));
+                    if (GUI.Button(plus, "+", _button))
+                        hero.UpgradeSkillRpc(slot);
+                    GUI.color = prevC;
+                }
+            }
             if (!unlocked)
             {
                 GUI.Label(new Rect(r.x, r.y + r.height / 2f - 11, r.width, 22), "с 4 ур.", _small);
@@ -765,14 +857,32 @@ namespace Moba
                     s.normal.background = btn;
                     s.hover.background = btnHi != null ? btnHi : btn;
                     s.active.background = btnHi != null ? btnHi : btn;
+                    s.focused.background = btnHi != null ? btnHi : btn;
                     s.border = new RectOffset(14, 14, 14, 14);
-                    s.normal.textColor = new Color(1f, 0.92f, 0.8f);
-                    s.hover.textColor = Color.white;
-                    s.active.textColor = Color.white;
                 }
             }
-            _h2.normal.textColor = new Color(0.95f, 0.85f, 0.75f);
-            _small.normal.textColor = new Color(0.85f, 0.76f, 0.68f);
+            // explicit text colors for EVERY state — otherwise text vanishes on
+            // hover/press on some platforms (notably WebGL/mobile)
+            SetAllTextColors(_button, new Color(1f, 0.92f, 0.8f), Color.white);
+            SetAllTextColors(_bigButton, new Color(1f, 0.92f, 0.8f), Color.white);
+            SetAllTextColors(_title, _title.normal.textColor, _title.normal.textColor);
+            SetAllTextColors(_h1, Color.white, Color.white);
+            SetAllTextColors(_h2, new Color(0.95f, 0.85f, 0.75f), new Color(0.95f, 0.85f, 0.75f));
+            SetAllTextColors(_label, Color.white, Color.white);
+            SetAllTextColors(_small, new Color(0.85f, 0.76f, 0.68f), new Color(0.85f, 0.76f, 0.68f));
+            SetAllTextColors(_warn, Color.white, Color.white);
+        }
+
+        static void SetAllTextColors(GUIStyle s, Color normal, Color highlight)
+        {
+            s.normal.textColor = normal;
+            s.hover.textColor = highlight;
+            s.active.textColor = highlight;
+            s.focused.textColor = highlight;
+            s.onNormal.textColor = normal;
+            s.onHover.textColor = highlight;
+            s.onActive.textColor = highlight;
+            s.onFocused.textColor = highlight;
         }
 
         static string DetectLocalIps()

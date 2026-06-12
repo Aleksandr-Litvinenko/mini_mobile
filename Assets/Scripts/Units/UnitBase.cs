@@ -92,7 +92,8 @@ namespace Moba
             if (!IsServer || !IsSpawned || Hp.Value <= 0f) return;
             amount = ModifyIncomingDamage(amount);
             Hp.Value = Mathf.Max(0f, Hp.Value - amount);
-            DamageFxRpc(amount, transform.position + Vector3.up * HealthBarHeight);
+            DamageFxRpc(amount, transform.position + Vector3.up * HealthBarHeight,
+                attacker != null && attacker.IsSpawned ? attacker.NetworkObjectId : 0UL);
             // Belial's dark magic drains life from living victims
             if (attacker is Hero ah && ah.IsSpawned && ah.Team != Team &&
                 ah.HeroType == HeroKind.Belial && (this is Hero || this is Minion))
@@ -122,14 +123,28 @@ namespace Moba
         [Rpc(SendTo.ClientsAndHost)]
         void DeathFxRpc(Vector3 pos)
         {
-            FxBurst.Spawn(pos + Vector3.up * 0.5f, new Color(0.75f, 0.2f, 0.1f), 1.3f, 0.3f);
+            ParticleFx.SpawnTinted("FxSparkBurst", pos + Vector3.up * 0.5f,
+                new Color(0.85f, 0.25f, 0.12f), 0.8f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        void DamageFxRpc(float amount, Vector3 pos)
+        void DamageFxRpc(float amount, Vector3 pos, ulong attackerId)
         {
-            DamagePopup.Spawn(pos, Mathf.Max(1, Mathf.RoundToInt(amount)).ToString(),
-                new Color(1f, 0.85f, 0.35f), 1f);
+            // your own hits pop big and bright, damage you take pops red
+            var c = new Color(1f, 0.85f, 0.35f);
+            float size = 0.9f;
+            var local = Hero.Local;
+            if (local != null && (UnitBase)local == this)
+            {
+                c = new Color(1f, 0.3f, 0.25f);
+                size = 1.3f;
+            }
+            else if (local != null && attackerId != 0 && attackerId == local.NetworkObjectId)
+            {
+                c = new Color(1f, 1f, 0.8f);
+                size = 1.35f;
+            }
+            DamagePopup.Spawn(pos, Mathf.Max(1, Mathf.RoundToInt(amount)).ToString(), c, size);
         }
     }
 }

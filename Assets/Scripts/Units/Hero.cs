@@ -29,6 +29,10 @@ namespace Moba
         public NetworkVariable<int> AsUp = new NetworkVariable<int>(0);
         public NetworkVariable<int> Kills = new NetworkVariable<int>(0);
         public NetworkVariable<int> Deaths = new NetworkVariable<int>(0);
+        public NetworkVariable<int> QLvl = new NetworkVariable<int>(1);
+        public NetworkVariable<int> WLvl = new NetworkVariable<int>(1);
+        public NetworkVariable<int> ELvl = new NetworkVariable<int>(1);
+        public NetworkVariable<int> SkillPoints = new NetworkVariable<int>(0);
 
         // set by the spawner before Spawn() (bot in training mode)
         [HideInInspector] public bool PendingBot;
@@ -36,6 +40,7 @@ namespace Moba
         // ---- tuning ----
         public const int MaxLevel = 15;
         public const int UltLevel = 4;
+        public const int SkillCap = 5;
         public const float BaseMoveSpeed = 7f;
         public const float LifestealFraction = 0.12f; // Belial only
 
@@ -55,19 +60,20 @@ namespace Moba
              : 60f + 12f * (Level.Value - 1)) + 15f * AtkUp.Value;
         public float AttackRange => IsBelial ? 5.0f : IsAdanos ? 5.5f : 6.0f;
         public float AttackCooldown => 1.1f * Mathf.Pow(0.88f, AsUp.Value);
+        // skill damage scales with the skill's own level (upgraded with skill points)
         public float QDamage =>
-            IsBelial ? 115f + 34f * (Level.Value - 1)
-            : IsAdanos ? 85f + 26f * (Level.Value - 1)
-            : 95f + 30f * (Level.Value - 1);
-        public float WDrainDamage => 75f + 22f * (Level.Value - 1);
-        public float WFlowHeal => 90f + 24f * (Level.Value - 1);
+            IsBelial ? 75f + 38f * QLvl.Value
+            : IsAdanos ? 55f + 28f * QLvl.Value
+            : 60f + 30f * QLvl.Value;
+        public float WDrainDamage => 45f + 28f * WLvl.Value;
+        public float WFlowHeal => 55f + 30f * WLvl.Value;
         public float EDamage =>
-            IsBelial ? 150f + 36f * (Level.Value - 1)
-            : IsAdanos ? 140f + 32f * (Level.Value - 1)
-            : 180f + 42f * (Level.Value - 1);
-        public float EHealPerHit => 70f + 15f * (Level.Value - 1);
+            IsBelial ? 105f + 40f * ELvl.Value
+            : IsAdanos ? 100f + 38f * ELvl.Value
+            : 130f + 48f * ELvl.Value;
+        public float EHealPerHit => 50f + 18f * ELvl.Value;
         public float QCd => IsBelial ? 6f : IsAdanos ? 4.5f : 5f;
-        public float WCd => IsBelial ? 7f : 9f;
+        public float WCd => IsBelial ? 7f : 10f - 0.5f * WLvl.Value; // blink cd drops per level
         public float ECd => IsAdanos ? 28f : 30f;
         public float QCost => IsBelial ? 45f : IsAdanos ? 35f : 40f;
         public float WCost => IsBelial ? 40f : IsAdanos ? 45f : 35f;
@@ -255,6 +261,50 @@ namespace Moba
         public void RequestBuy(int index)
         {
             BuyUpgradeRpc(index);
+        }
+
+        public int GetSkillLevel(int slot) =>
+            slot == 0 ? QLvl.Value : slot == 1 ? WLvl.Value : ELvl.Value;
+
+        public bool CanUpgradeSkill(int slot)
+        {
+            if (SkillPoints.Value <= 0) return false;
+            if (slot == 2 && Level.Value < UltLevel) return false;
+            return GetSkillLevel(slot) < SkillCap;
+        }
+
+        /// Full tooltip with live numbers for the HUD.
+        public string SkillTooltip(int slot)
+        {
+            var meta = HeroData.Skill(HeroType, slot);
+            string head = meta.name + " (ур. " + GetSkillLevel(slot) + ")\n" + meta.desc + "\n";
+            string body;
+            switch (slot)
+            {
+                case 0:
+                    body = "Урон: " + Mathf.RoundToInt(QDamage) +
+                           (HeroType != HeroKind.Xardaras ? ", замедляет" : "") +
+                           "\nМана: " + QCost + "   КД: " + QCd + " c";
+                    break;
+                case 1:
+                    if (IsBelial)
+                        body = "Урон и лечение: " + Mathf.RoundToInt(WDrainDamage) +
+                               "\nМана: " + WCost + "   КД: " + WCd + " c";
+                    else if (IsAdanos)
+                        body = "Лечение: " + Mathf.RoundToInt(WFlowHeal) + " + ускорение 35% (2 c)" +
+                               "\nМана: " + WCost + "   КД: " + WCd + " c";
+                    else
+                        body = "Перенос до 7 м\nМана: " + WCost + "   КД: " + WCd + " c";
+                    break;
+                default:
+                    body = "Урон: " + Mathf.RoundToInt(EDamage) +
+                           (IsBelial ? " + лечение " + Mathf.RoundToInt(EHealPerHit) + " за врага" : "") +
+                           (IsAdanos ? ", замедление 3 c" : ", замедление 2 c") +
+                           "\nМана: " + ECost + "   КД: " + ECd + " c" +
+                           (Level.Value < UltLevel ? "\nОткроется на 4 уровне" : "");
+                    break;
+            }
+            return head + body;
         }
 
         void TryAttack()
@@ -519,6 +569,17 @@ namespace Moba
         }
 
         [Rpc(SendTo.Server)]
+        public void UpgradeSkillRpc(int slot)
+        {
+            if (slot < 0 || slot > 2 || SkillPoints.Value <= 0) return;
+            if (slot == 2 && Level.Value < UltLevel) return;
+            var nv = slot == 0 ? QLvl : slot == 1 ? WLvl : ELvl;
+            if (nv.Value >= SkillCap) return;
+            nv.Value++;
+            SkillPoints.Value--;
+        }
+
+        [Rpc(SendTo.Server)]
         public void BuyUpgradeRpc(int index)
         {
             if (index < 0 || index > 2 || Dead.Value) return;
@@ -546,29 +607,32 @@ namespace Moba
         [Rpc(SendTo.ClientsAndHost)]
         void BlinkFxRpc(Vector3 from, Vector3 to)
         {
-            FxBurst.Spawn(from, new Color(0.4f, 0.7f, 1f), 1.6f, 0.3f);
-            FxBurst.Spawn(to, new Color(0.6f, 0.85f, 1f), 1.9f, 0.35f);
+            RingFx.Spawn(from, new Color(0.4f, 0.7f, 1f), 1.6f, 0.5f);
+            RingFx.Spawn(to, new Color(0.6f, 0.85f, 1f), 1.9f, 0.6f);
+            ParticleFx.SpawnTinted("FxSparkBurst", to + Vector3.up, new Color(0.6f, 0.85f, 1f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         void BeamFxRpc(Vector3 from, Vector3 to)
         {
             FxBeam.Spawn(from, to, new Color(1f, 0.2f, 0.3f));
-            FxBurst.Spawn(to, new Color(0.9f, 0.15f, 0.25f), 1.2f, 0.3f);
+            ParticleFx.SpawnTinted("FxSparkBurst", to, new Color(1f, 0.25f, 0.3f), 0.7f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         void FlowFxRpc()
         {
-            FxBurst.Spawn(transform.position, new Color(0.35f, 0.9f, 0.8f), 2.2f, 0.4f);
-            ParticleFx.SpawnOneShot(transform.position, new Color(0.4f, 0.95f, 0.85f));
+            RingFx.Spawn(transform.position, new Color(0.35f, 0.9f, 0.95f), 2.4f, 0.7f);
+            ParticleFx.Spawn("FxWaterBlast", transform.position, null, 0.7f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         void UltFxRpc(Vector3 pos, float radius)
         {
-            FxBurst.Spawn(pos, KindColor, radius);
-            ParticleFx.SpawnOneShot(pos, KindColor);
+            string blast = IsBelial ? "FxDarkBlast" : IsAdanos ? "FxWaterBlast" : "FxFireBlast";
+            ParticleFx.Spawn(blast, pos);
+            RingFx.Spawn(pos, KindColor, radius, 0.9f);
+            CameraRig.Shake(0.15f, 0.4f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -576,7 +640,9 @@ namespace Moba
         {
             DamagePopup.Spawn(transform.position + Vector3.up * 3f, "УРОВЕНЬ " + newLevel,
                 new Color(1f, 0.95f, 0.3f), 1.4f);
-            FxBurst.Spawn(transform.position, new Color(1f, 0.95f, 0.3f), 2.2f);
+            RingFx.Spawn(transform.position, new Color(1f, 0.92f, 0.4f), 2.4f, 0.8f);
+            ParticleFx.SpawnTinted("FxSparkBurst", transform.position + Vector3.up,
+                new Color(1f, 0.92f, 0.4f));
         }
 
         // ============================== SERVER ==============================
@@ -646,6 +712,7 @@ namespace Moba
             {
                 Xp.Value -= XpToNext;
                 Level.Value++;
+                SkillPoints.Value++;
                 ServerRecalcStats();
                 ServerHeal(MaxHp.Value * 0.25f);
                 Mana.Value = Mathf.Min(MaxMana.Value, Mana.Value + MaxMana.Value * 0.25f);

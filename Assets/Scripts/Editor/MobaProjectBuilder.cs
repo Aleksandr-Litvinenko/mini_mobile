@@ -59,6 +59,7 @@ namespace Moba.EditorTools
             Directory.CreateDirectory(FxDir);
             Directory.CreateDirectory("Assets/Scenes");
             AssetDatabase.Refresh();
+            MakeAllParticleMats();
 
             BuildHeroPrefab();
             BuildMinionPrefab();
@@ -102,6 +103,19 @@ namespace Moba.EditorTools
                     new Vector3(sx * 0.13f, 2.0f, 0.26f), Vector3.one * 0.1f);
                 SetColor(eye, new Color(0.9f, 0.95f, 1f), 1.8f);
             }
+            foreach (int sx in new[] { -1, 1 }) // arms reaching towards the staff
+            {
+                var arm = AddPart(visual, PrimitiveType.Capsule,
+                    new Vector3(sx * 0.48f, 1.22f, 0.14f), new Vector3(0.17f, 0.3f, 0.17f));
+                arm.transform.localRotation = Quaternion.Euler(30f, 0f, sx * -16f);
+                arm.AddComponent<TeamTint>();
+                var hand = AddPart(visual, PrimitiveType.Sphere,
+                    new Vector3(sx * 0.55f, 0.95f, 0.3f), Vector3.one * 0.17f);
+                SetColor(hand, new Color(0.87f, 0.74f, 0.62f));
+            }
+            var belt = AddPart(visual, PrimitiveType.Cylinder, new Vector3(0f, 0.98f, 0f),
+                new Vector3(0.78f, 0.05f, 0.78f));
+            SetColor(belt, new Color(0.5f, 0.36f, 0.18f), 0.4f);
 
             // ---- Xardaras: fire mage (wizard hat, cyan orb, fire staff) ----
             var kx = new GameObject("KindX");
@@ -194,17 +208,49 @@ namespace Moba.EditorTools
             var visual = new GameObject("Visual");
             visual.transform.SetParent(root.transform, false);
 
-            var body = AddPart(visual, PrimitiveType.Capsule, new Vector3(0f, 0.55f, 0f),
-                new Vector3(0.6f, 0.5f, 0.6f));
+            // little lava imp
+            var body = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 0.52f, 0f),
+                new Vector3(0.78f, 0.66f, 0.78f));
             body.AddComponent<TeamTint>();
-            var head = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 1.05f, 0.1f),
-                Vector3.one * 0.4f);
+            foreach (int sx in new[] { -1, 1 }) // stubby legs
+            {
+                var leg = AddPart(visual, PrimitiveType.Capsule,
+                    new Vector3(sx * 0.2f, 0.16f, 0f), new Vector3(0.16f, 0.16f, 0.16f));
+                SetColor(leg, new Color(0.2f, 0.16f, 0.18f));
+            }
+            foreach (int sx in new[] { -1, 1 }) // little arms
+            {
+                var arm = AddPart(visual, PrimitiveType.Capsule,
+                    new Vector3(sx * 0.42f, 0.6f, 0.1f), new Vector3(0.13f, 0.2f, 0.13f));
+                arm.transform.localRotation = Quaternion.Euler(35f, 0f, sx * -30f);
+                arm.AddComponent<TeamTint>();
+            }
+            var head = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 1.05f, 0.08f),
+                Vector3.one * 0.46f);
             SetColor(head, new Color(0.22f, 0.18f, 0.2f));
+            foreach (int sx in new[] { -1, 1 }) // tiny horns
+            {
+                var horn = AddPart(visual, PrimitiveType.Capsule,
+                    new Vector3(sx * 0.15f, 1.32f, 0.02f), new Vector3(0.07f, 0.12f, 0.07f));
+                horn.transform.localRotation = Quaternion.Euler(0f, 0f, sx * -22f);
+                SetColor(horn, new Color(0.5f, 0.2f, 0.16f));
+            }
             foreach (int sx in new[] { -1, 1 }) // glowing ember eyes
             {
                 var eye = AddPart(visual, PrimitiveType.Sphere,
-                    new Vector3(sx * 0.09f, 1.1f, 0.27f), Vector3.one * 0.09f);
+                    new Vector3(sx * 0.1f, 1.1f, 0.28f), Vector3.one * 0.1f);
                 SetColor(eye, new Color(1f, 0.5f, 0.1f), 2.5f);
+            }
+            var mouth = AddPart(visual, PrimitiveType.Sphere, new Vector3(0f, 0.95f, 0.3f),
+                new Vector3(0.14f, 0.07f, 0.08f));
+            SetColor(mouth, new Color(1f, 0.4f, 0.1f), 2f);
+            // ember tail
+            for (int i = 0; i < 3; i++)
+            {
+                var seg = AddPart(visual, PrimitiveType.Sphere,
+                    new Vector3(0f, 0.45f - i * 0.1f, -0.42f - i * 0.18f),
+                    Vector3.one * (0.18f - i * 0.04f));
+                SetColor(seg, new Color(1f, 0.45f + 0.15f * i, 0.12f), 1.4f);
             }
 
             AddHealthBar(root, 1.7f, 1.1f);
@@ -221,21 +267,37 @@ namespace Moba.EditorTools
         static void BuildTowerPrefab()
         {
             var root = new GameObject("Tower");
-            var pillar = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 2f, 0f),
-                new Vector3(1.9f, 2f, 1.9f));
-            SetColor(pillar, new Color(0.4f, 0.36f, 0.4f), 0f, "Textures/obsidian", 2f);
-            var ring = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.25f, 0f),
-                new Vector3(2.6f, 0.25f, 2.6f));
-            ring.AddComponent<TeamTint>();
-            var lavaRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 3.6f, 0f),
-                new Vector3(2.1f, 0.12f, 2.1f));
+            var baseTier = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.25f, 0f),
+                new Vector3(5.2f, 0.25f, 5.2f));
+            SetColor(baseTier, new Color(0.38f, 0.34f, 0.38f), 0f, "Textures/obsidian", 2f);
+            var teamRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.55f, 0f),
+                new Vector3(4.4f, 0.1f, 4.4f));
+            teamRing.AddComponent<TeamTint>();
+            for (int i = 0; i < 4; i++) // corner pillars
+            {
+                float a = (i + 0.5f) / 4f * Mathf.PI * 2f;
+                var p = AddPart(root, PrimitiveType.Cylinder,
+                    new Vector3(Mathf.Cos(a) * 1.75f, 1.4f, Mathf.Sin(a) * 1.75f),
+                    new Vector3(0.7f, 1.2f, 0.7f));
+                SetColor(p, new Color(0.42f, 0.38f, 0.44f), 0f, "Textures/obsidian", 1.5f);
+                var cap = AddPart(root, PrimitiveType.Sphere,
+                    new Vector3(Mathf.Cos(a) * 1.75f, 2.75f, Mathf.Sin(a) * 1.75f),
+                    Vector3.one * 0.4f);
+                SetColor(cap, new Color(1f, 0.5f, 0.15f), 1.6f);
+            }
+            var spire = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 2.6f, 0f),
+                new Vector3(2.1f, 1.5f, 2.1f));
+            SetColor(spire, new Color(0.45f, 0.4f, 0.46f), 0f, "Textures/obsidian", 2f);
+            var lavaRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 4.35f, 0f),
+                new Vector3(3.2f, 0.12f, 3.2f));
             SetColor(lavaRing, new Color(1f, 0.55f, 0.2f), 1.5f, "Textures/lava", 1f);
-            var orb = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 4.4f, 0f),
-                Vector3.one * 1.1f);
+            AddIdle(lavaRing, 0.08f, 1.4f, 70f, 0f);
+            var orb = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 5.2f, 0f),
+                Vector3.one * 1.25f);
             orb.AddComponent<TeamTint>();
-            AddIdle(orb, 0.1f, 1.6f, 45f, 0.06f);
+            AddIdle(orb, 0.12f, 1.6f, 45f, 0.06f);
 
-            AddHealthBar(root, 5.2f, 2.2f);
+            AddHealthBar(root, 6.1f, 2.2f);
 
             root.AddComponent<NetworkObject>();
             root.AddComponent<Tower>();
@@ -245,15 +307,44 @@ namespace Moba.EditorTools
         static void BuildBasePrefab()
         {
             var root = new GameObject("BaseCore");
-            var podium = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 1f, 0f),
-                new Vector3(4.6f, 1f, 4.6f));
+            var podium = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.3f, 0f),
+                new Vector3(9.4f, 0.3f, 9.4f));
             SetColor(podium, new Color(0.38f, 0.34f, 0.38f), 0f, "Textures/obsidian", 3f);
-            var crystal = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 3f, 0f),
-                Vector3.one * 1.9f);
+            var step = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.7f, 0f),
+                new Vector3(6.6f, 0.2f, 6.6f));
+            SetColor(step, new Color(0.44f, 0.4f, 0.46f), 0f, "Textures/obsidian", 2f);
+            for (int i = 0; i < 6; i++) // ring of pillars
+            {
+                float a = i / 6f * Mathf.PI * 2f;
+                var p = AddPart(root, PrimitiveType.Cylinder,
+                    new Vector3(Mathf.Cos(a) * 3.9f, 1.4f, Mathf.Sin(a) * 3.9f),
+                    new Vector3(0.8f, 1.1f, 0.8f));
+                SetColor(p, new Color(0.42f, 0.38f, 0.44f), 0f, "Textures/obsidian", 1.5f);
+                var cap = AddPart(root, PrimitiveType.Sphere,
+                    new Vector3(Mathf.Cos(a) * 3.9f, 2.7f, Mathf.Sin(a) * 3.9f),
+                    Vector3.one * 0.5f);
+                cap.AddComponent<TeamTint>();
+            }
+            // the great crystal
+            var crystal = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 3.2f, 0f),
+                new Vector3(1.7f, 2.8f, 1.7f));
             crystal.AddComponent<TeamTint>();
-            AddIdle(crystal, 0.18f, 1.2f, 30f, 0.05f);
+            AddIdle(crystal, 0.2f, 1.2f, 30f, 0.05f);
+            // orbiting shards
+            var orbit = new GameObject("Orbit");
+            orbit.transform.SetParent(root.transform, false);
+            orbit.transform.localPosition = new Vector3(0f, 3.2f, 0f);
+            AddIdle(orbit, 0.12f, 1.6f, 55f, 0f);
+            for (int i = 0; i < 3; i++)
+            {
+                float a = i / 3f * Mathf.PI * 2f;
+                var shard = AddPart(orbit, PrimitiveType.Sphere,
+                    new Vector3(Mathf.Cos(a) * 2.7f, 0f, Mathf.Sin(a) * 2.7f),
+                    new Vector3(0.45f, 1f, 0.45f));
+                shard.AddComponent<TeamTint>();
+            }
 
-            AddHealthBar(root, 4.6f, 3f);
+            AddHealthBar(root, 5.8f, 3f);
 
             root.AddComponent<NetworkObject>();
             root.AddComponent<BaseCore>();
@@ -264,6 +355,21 @@ namespace Moba.EditorTools
         {
             var root = new GameObject("Projectile");
             AddPart(root, PrimitiveType.Sphere, Vector3.zero, Vector3.one);
+            // glowing spark trail (tinted to team color at runtime)
+            var trail = AddPs(root, "Trail", _matSpark);
+            var main = trail.main;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.45f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.05f, 0.2f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 60;
+            var em = trail.emission;
+            em.rateOverTime = 45f;
+            var sh = trail.shape;
+            sh.shapeType = ParticleSystemShapeType.Sphere;
+            sh.radius = 0.3f;
+            FadeOut(trail);
+
             root.AddComponent<NetworkObject>();
             var nt = root.AddComponent<NetworkTransform>();
             ConfigureTransformSync(nt);
@@ -285,8 +391,130 @@ namespace Moba.EditorTools
 
         // ============================== PARTICLE FX ==============================
 
+        static Material _matFlame, _matSpark, _matWisp, _matDrop, _matSmoke, _matRune;
+
+        static Material MakeParticleMat(string name, string texFile, bool additive)
+        {
+            Directory.CreateDirectory("Assets/FxMaterials");
+            string path = "Assets/FxMaterials/" + name + ".mat";
+            var shader = Shader.Find(additive
+                ? "Legacy Shaders/Particles/Additive"
+                : "Legacy Shaders/Particles/Alpha Blended");
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            bool isNew = mat == null;
+            if (isNew) mat = new Material(shader);
+            else mat.shader = shader;
+            mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FxTextures/" + texFile);
+            if (isNew) AssetDatabase.CreateAsset(mat, path);
+            else EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        static void MakeAllParticleMats()
+        {
+            _matFlame = MakeParticleMat("MatFlame", "flame.png", true);
+            _matSpark = MakeParticleMat("MatSpark", "spark.png", true);
+            _matWisp = MakeParticleMat("MatWisp", "wisp.png", true);
+            _matDrop = MakeParticleMat("MatDrop", "drop.png", true);
+            _matSmoke = MakeParticleMat("MatSmoke", "smoke.png", false);
+            _matRune = MakeParticleMat("MatRune", "rune_ring.png", true);
+        }
+
+        static ParticleSystem AddPs(GameObject parent, string name, Material mat)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent.transform, false);
+            var ps = go.AddComponent<ParticleSystem>();
+            go.GetComponent<ParticleSystemRenderer>().sharedMaterial = mat;
+            return ps;
+        }
+
+        static void OneShot(ParticleSystem ps, int count, float speedMin, float speedMax,
+            float sizeMin, float sizeMax, float lifeMin, float lifeMax, Color c1, Color c2,
+            float gravity = 0f, float orbital = 0f)
+        {
+            var main = ps.main;
+            main.loop = false;
+            main.duration = 0.7f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(lifeMin, lifeMax);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(speedMin, speedMax);
+            main.startSize = new ParticleSystem.MinMaxCurve(sizeMin, sizeMax);
+            main.startColor = new ParticleSystem.MinMaxGradient(c1, c2);
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = count + 10;
+            main.gravityModifier = gravity;
+            main.stopAction = ParticleSystemStopAction.Destroy;
+            var em = ps.emission;
+            em.rateOverTime = 0f;
+            em.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)count) });
+            var sh = ps.shape;
+            sh.shapeType = ParticleSystemShapeType.Sphere;
+            sh.radius = 0.5f;
+            if (orbital != 0f)
+            {
+                var vel = ps.velocityOverLifetime;
+                vel.enabled = true;
+                vel.orbitalY = new ParticleSystem.MinMaxCurve(orbital);
+            }
+            FadeOut(ps);
+        }
+
+        static void BuildBlast(string name, System.Action<GameObject> fill)
+        {
+            var root = new GameObject(name);
+            root.AddComponent<TimedDestroy>(); // children may self-destroy, the root must too
+            fill(root);
+            string path = FxDir + "/" + name + ".prefab";
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+        }
+
         static void BuildFxPrefabs()
         {
+            // elemental ult blasts
+            BuildBlast("FxFireBlast", root =>
+            {
+                OneShot(AddPs(root, "Flames", _matFlame), 26, 3f, 8f, 0.7f, 1.6f, 0.45f, 0.85f,
+                    new Color(1f, 0.55f, 0.15f), new Color(1f, 0.85f, 0.3f));
+                OneShot(AddPs(root, "Sparks", _matSpark), 40, 6f, 13f, 0.15f, 0.4f, 0.35f, 0.7f,
+                    new Color(1f, 0.8f, 0.3f), Color.white);
+                OneShot(AddPs(root, "Smoke", _matSmoke), 10, 1f, 2.5f, 1.6f, 2.8f, 0.9f, 1.5f,
+                    new Color(0.25f, 0.2f, 0.18f, 0.5f), new Color(0.4f, 0.32f, 0.28f, 0.4f));
+            });
+            BuildBlast("FxDarkBlast", root =>
+            {
+                OneShot(AddPs(root, "Wisps", _matWisp), 24, 1.5f, 4f, 0.8f, 1.7f, 0.7f, 1.2f,
+                    new Color(0.65f, 0.25f, 1f), new Color(0.95f, 0.3f, 0.5f), 0f, 5f);
+                OneShot(AddPs(root, "Sparks", _matSpark), 30, 5f, 10f, 0.12f, 0.35f, 0.4f, 0.7f,
+                    new Color(0.9f, 0.3f, 0.6f), new Color(0.7f, 0.4f, 1f));
+            });
+            BuildBlast("FxWaterBlast", root =>
+            {
+                OneShot(AddPs(root, "Drops", _matDrop), 34, 4f, 9f, 0.3f, 0.7f, 0.5f, 0.9f,
+                    new Color(0.35f, 0.8f, 1f), new Color(0.8f, 0.97f, 1f), 0.8f);
+                OneShot(AddPs(root, "Mist", _matSmoke), 8, 1f, 2f, 1.4f, 2.4f, 0.8f, 1.3f,
+                    new Color(0.5f, 0.8f, 0.95f, 0.45f), new Color(0.7f, 0.9f, 1f, 0.35f));
+            });
+            // generic tintable spark burst (hits, deaths, blink)
+            BuildBlast("FxSparkBurst", root =>
+            {
+                OneShot(AddPs(root, "Sparks", _matSpark), 22, 4f, 9f, 0.14f, 0.36f, 0.3f, 0.6f,
+                    Color.white, new Color(1f, 0.9f, 0.6f));
+            });
+
+            // spinning rune circle (RingFx scales/fades it)
+            BuildBlast("FxRing", root =>
+            {
+                root.AddComponent<RingFx>();
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                var col = quad.GetComponent<Collider>();
+                if (col != null) Object.DestroyImmediate(col);
+                quad.transform.SetParent(root.transform, false);
+                quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                quad.GetComponent<Renderer>().sharedMaterial = _matRune;
+            });
+
             BuildFx("FxSmoke", ps =>
             {
                 var main = ps.main;
@@ -304,7 +532,7 @@ namespace Moba.EditorTools
                 sh.angle = 14f;
                 sh.radius = 1.2f;
                 FadeOut(ps);
-            });
+            }, _matSmoke);
 
             BuildFx("FxEmbers", ps =>
             {
@@ -323,7 +551,7 @@ namespace Moba.EditorTools
                 sh.angle = 28f;
                 sh.radius = 1.4f;
                 FadeOut(ps);
-            });
+            }, _matSpark);
 
             BuildFx("FxSparkles", ps =>
             {
@@ -342,7 +570,7 @@ namespace Moba.EditorTools
                 sh.angle = 32f;
                 sh.radius = 2.2f;
                 FadeOut(ps);
-            });
+            }, _matSpark);
 
             BuildFx("FxAsh", ps =>
             {
@@ -359,9 +587,9 @@ namespace Moba.EditorTools
                 em.rateOverTime = 26f;
                 var sh = ps.shape;
                 sh.shapeType = ParticleSystemShapeType.Box;
-                sh.scale = new Vector3(72f, 27f, 1f);
+                sh.scale = new Vector3(84f, 32f, 1f);
                 FadeOut(ps);
-            });
+            }, _matSmoke);
 
             BuildFx("FxBurstPs", ps =>
             {
@@ -383,7 +611,7 @@ namespace Moba.EditorTools
                 sh.shapeType = ParticleSystemShapeType.Sphere;
                 sh.radius = 0.5f;
                 FadeOut(ps);
-            });
+            }, _matSpark);
         }
 
         static void FadeOut(ParticleSystem ps)
@@ -406,13 +634,15 @@ namespace Moba.EditorTools
             col.color = new ParticleSystem.MinMaxGradient(grad);
         }
 
-        static void BuildFx(string name, System.Action<ParticleSystem> configure)
+        static void BuildFx(string name, System.Action<ParticleSystem> configure,
+            Material mat = null)
         {
             var go = new GameObject(name);
             var ps = go.AddComponent<ParticleSystem>();
             var renderer = go.GetComponent<ParticleSystemRenderer>();
-            renderer.sharedMaterial =
-                AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+            renderer.sharedMaterial = mat != null
+                ? mat
+                : AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
             configure(ps);
             string path = FxDir + "/" + name + ".prefab";
             PrefabUtility.SaveAsPrefabAsset(go, path);
