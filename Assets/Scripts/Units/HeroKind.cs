@@ -26,7 +26,7 @@ namespace Moba
         public const int Count = 3;
 
         public static string Name(HeroKind k) =>
-            k == HeroKind.Belial ? "Белиал" : k == HeroKind.Adanos ? "Аданос" : "Ксардарас";
+            k == HeroKind.Belial ? "Белиал" : k == HeroKind.Adanos ? "Аданос" : "Ксардас";
 
         public static string Title(HeroKind k) =>
             k == HeroKind.Belial ? "тёмный маг" : k == HeroKind.Adanos ? "маг воды" : "маг огня";

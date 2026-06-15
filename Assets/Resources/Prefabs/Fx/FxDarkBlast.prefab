@@ -9797,7 +9797,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1216465336708485393}
-  - component: {fileID: 532339931942412768}
+  - component: {fileID: 8131312447512790009}
   m_Layer: 0
   m_Name: FxDarkBlast
   m_TagString: Untagged
@@ -9822,7 +9822,7 @@ Transform:
   - {fileID: 1775994280665014415}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &532339931942412768
+--- !u!114 &8131312447512790009
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

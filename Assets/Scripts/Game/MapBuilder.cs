@@ -89,11 +89,11 @@ namespace Moba
             RenderSettings.fogColor = new Color(0.22f, 0.1f, 0.08f);
             RenderSettings.fogDensity = 0.005f;
 
-            // ground and lane (flat cylinders, no cubes anywhere)
+            // ground and lane — photoreal CC0 volcanic-rock texture (ambientCG)
             Cylinder(root, "Ground", new Vector3(0f, -0.18f, 0f), new Vector3(136f, 0.15f, 58f),
-                new Color(0.5f, 0.45f, 0.42f), 0f, "Textures/rock", 12f);
+                new Color(0.62f, 0.58f, 0.55f), 0f, "Textures/ground_rock", 16f);
             Cylinder(root, "Lane", new Vector3(0f, -0.12f, 0f), new Vector3(112f, 0.14f, 13.2f),
-                new Color(0.75f, 0.66f, 0.58f), 0f, "Textures/lane", 8f);
+                new Color(0.85f, 0.72f, 0.6f), 0f, "Textures/ground_rock", 10f);
 
             // basalt column walls around the arena
             BuildColumnWall(root, -57f, 57f, 20.2f, true);
@@ -209,6 +209,8 @@ namespace Moba
             Obstacles.Add(new Obstacle { pos = new Vector2(center.x, center.z), radius = 1.9f });
         }
 
+        static readonly string[] TreeModels = { "tree_detailed", "tree_pineDefaultA", "tree_fat" };
+
         static void BuildTrees(GameObject root)
         {
             var rnd = new System.Random(99);
@@ -217,10 +219,27 @@ namespace Moba
                 {
                     if (Mathf.Abs(x) < 7f) continue; // keep mid bushes clear
                     float z = side * (16.6f + (float)rnd.NextDouble() * 1.6f);
-                    string model = rnd.Next(2) == 0 ? "Tree1" : "PineTree";
+                    string model = TreeModels[rnd.Next(TreeModels.Length)];
                     SpawnModel(root, model, new Vector3(x, 0f, z),
                         4.4f + (float)rnd.NextDouble() * 2f, (float)rnd.NextDouble() * 360f);
                     Obstacles.Add(new Obstacle { pos = new Vector2(x, z), radius = 0.9f });
+                }
+        }
+
+        // Kenney nature models ship colors in material names, not textures —
+        // guarantee correct colors regardless of how the FBX imported.
+        static void FixKenneyColors(GameObject inst)
+        {
+            foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+                foreach (var m in r.materials)
+                {
+                    if (m == null) continue;
+                    string n = m.name.ToLower();
+                    if (n.Contains("leafsdark")) m.color = new Color(0.16f, 0.34f, 0.16f);
+                    else if (n.Contains("leafs") || n.Contains("green")) m.color = new Color(0.26f, 0.5f, 0.22f);
+                    else if (n.Contains("woodbarkdark")) m.color = new Color(0.32f, 0.22f, 0.14f);
+                    else if (n.Contains("woodbark") || n.Contains("wood")) m.color = new Color(0.45f, 0.3f, 0.18f);
+                    else if (n.Contains("grass")) m.color = new Color(0.3f, 0.5f, 0.22f);
                 }
         }
 
@@ -238,6 +257,7 @@ namespace Moba
             inst.transform.localScale = Vector3.one * s;
             b = ModelBounds(inst);
             inst.transform.position = new Vector3(pos.x, pos.y - b.min.y, pos.z);
+            FixKenneyColors(inst);
             return inst;
         }
 
@@ -256,7 +276,7 @@ namespace Moba
 
         static void BuildVolcano(GameObject root, Vector3 basePos)
         {
-            var rockC = new Color(0.32f, 0.26f, 0.26f);
+            var rockC = new Color(0.42f, 0.36f, 0.34f);
             float[] radii = { 19f, 15f, 11f, 7.2f, 4.2f };
             float h = 0f;
             for (int i = 0; i < radii.Length; i++)
@@ -264,13 +284,14 @@ namespace Moba
                 float step = 3.6f;
                 Cylinder(root, "VolcanoTier", basePos + Vector3.up * (h + step / 2f),
                     new Vector3(radii[i] * 2f, step / 2f, radii[i] * 2f), rockC, 0f,
-                    "Textures/rock", 3f);
+                    "Textures/ground_rock", 4f);
                 h += step;
             }
-            var crater = basePos + Vector3.up * (h + 0.1f);
-            Cylinder(root, "Crater", crater, new Vector3(7f, 0.3f, 7f),
-                new Color(1f, 0.6f, 0.25f), 1.8f, "Textures/lava", 1.5f);
-            Craters.Add(crater + Vector3.up * 0.5f);
+            var crater = Cylinder(root, "Crater", basePos + Vector3.up * (h + 0.1f),
+                new Vector3(7f, 0.3f, 7f), Color.white);
+            ApplyLava(crater, 2f, new Vector2(0.05f, 0.05f));
+            var craterPos = basePos + Vector3.up * (h + 0.1f);
+            Craters.Add(craterPos + Vector3.up * 0.5f);
 
             // lava streams down the slopes (capsules)
             for (int i = 0; i < 4; i++)
@@ -279,15 +300,29 @@ namespace Moba
                 var dir = Quaternion.Euler(0f, ang, 0f) * Vector3.forward;
                 var stream = Capsule(root, "LavaStream",
                     basePos + dir * 11f + Vector3.up * (h * 0.45f),
-                    new Vector3(1.2f, 7.2f, 1.2f), new Color(1f, 0.55f, 0.2f), 1.4f);
+                    new Vector3(1.2f, 7.2f, 1.2f), Color.white);
                 stream.transform.rotation = Quaternion.LookRotation(dir) *
                                             Quaternion.Euler(38f, 0f, 0f);
-                SetTexture(stream, "Textures/lava", 1f);
-                stream.AddComponent<UvScroller>().speed = new Vector2(0f, -0.25f);
+                ApplyLava(stream, 1.6f, new Vector2(0f, -0.25f));
             }
 
-            ParticleFx.Spawn("FxSmoke", crater + Vector3.up * 0.6f, root.transform, 2.2f);
-            ParticleFx.Spawn("FxEmbers", crater + Vector3.up * 0.4f, root.transform, 2.8f);
+            ParticleFx.Spawn("FxSmoke", craterPos + Vector3.up * 0.6f, root.transform, 2.2f);
+            ParticleFx.Spawn("FxEmbers", craterPos + Vector3.up * 0.4f, root.transform, 2.8f);
+        }
+
+        /// Apply the CC0 lava texture (albedo + emission map) and animate it.
+        public static void ApplyLava(GameObject go, float emission, Vector2 scroll)
+        {
+            var col = Resources.Load<Texture2D>("Textures/lava_color");
+            var emi = Resources.Load<Texture2D>("Textures/lava_emission");
+            var m = go.GetComponent<Renderer>().material;
+            if (col != null) { m.mainTexture = col; m.mainTextureScale = Vector2.one; }
+            m.color = new Color(1f, 0.85f, 0.7f);
+            m.EnableKeyword("_EMISSION");
+            if (emi != null) m.SetTexture("_EmissionMap", emi);
+            m.SetColor("_EmissionColor", new Color(1f, 0.5f, 0.2f) * emission);
+            if (scroll != Vector2.zero)
+                go.AddComponent<UvScroller>().speed = scroll;
         }
 
         // ---------- primitive helpers (spheres / capsules / cylinders only) ----------

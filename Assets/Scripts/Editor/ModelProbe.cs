@@ -8,39 +8,33 @@ namespace Moba.EditorTools
     {
         public static void Run()
         {
-            foreach (var name in new[]
+            foreach (var rel in new[]
                      {
-                         "Wizard", "Witch", "Elf", "GreenSpikyBlob", "Mushnub",
-                         "WatchTower_SecondAge_Level3", "Crystal2", "Tree1", "Rock1"
+                         "Models/TD/tower-round-build-a.fbx",
+                         "Models/TD/tower-round-build-d.fbx",
+                         "Models/TD/tower-round-build-f.fbx",
+                         "Models/TD/tower-round-crystals.fbx",
+                         "Models/TD/detail-crystal-large.fbx",
+                         "Models/tree_detailed.fbx",
+                         "Models/tree_pineDefaultA.fbx",
+                         "Models/tree_fat.fbx",
+                         "Models/plant_bushLarge.fbx"
                      })
             {
-                string path = "Assets/Resources/Models/" + name + ".fbx";
+                string path = "Assets/Resources/" + rel;
                 var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (go == null)
-                {
-                    Debug.Log("[Probe] " + name + ": NOT FOUND");
-                    continue;
-                }
+                if (go == null) { Debug.Log("[Probe] MISSING " + rel); continue; }
                 var rends = go.GetComponentsInChildren<Renderer>(true);
-                Bounds b = new Bounds(go.transform.position, Vector3.zero);
-                bool first = true;
+                Bounds b = default; bool first = true;
                 foreach (var r in rends)
                 {
-                    if (first) { b = r.bounds; first = false; }
-                    else b.Encapsulate(r.bounds);
+                    if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds);
                 }
-                var clips = AssetDatabase.LoadAllAssetsAtPath(path)
-                    .OfType<AnimationClip>()
-                    .Where(c => !c.name.StartsWith("__preview"))
-                    .Select(c => c.name).ToArray();
-                var mats = rends.SelectMany(r => r.sharedMaterials)
-                    .Where(m => m != null).Distinct()
-                    .Select(m => m.name + (m.mainTexture != null ? "(tex)" : "(noTex)"))
-                    .ToArray();
-                Debug.Log("[Probe] " + name + " size=" + b.size + " skinned=" +
-                          (go.GetComponentInChildren<SkinnedMeshRenderer>(true) != null) +
-                          "\n  clips: " + string.Join(", ", clips) +
-                          "\n  mats: " + string.Join(", ", mats));
+                var mats = rends.SelectMany(r => r.sharedMaterials).Where(m => m != null)
+                    .Select(m => m.name + (m.mainTexture != null ? "+tex(" + m.mainTexture.name + ")" : "+NOTEX"))
+                    .Distinct().ToArray();
+                Debug.Log("[Probe] " + rel.Substring(rel.LastIndexOf('/') + 1) +
+                          " size=" + b.size + " mats=[" + string.Join(",", mats) + "]");
             }
         }
     }

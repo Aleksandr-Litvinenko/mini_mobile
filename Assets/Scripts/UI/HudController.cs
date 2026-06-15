@@ -871,6 +871,16 @@ namespace Moba
             SetAllTextColors(_label, Color.white, Color.white);
             SetAllTextColors(_small, new Color(0.85f, 0.76f, 0.68f), new Color(0.85f, 0.76f, 0.68f));
             SetAllTextColors(_warn, Color.white, Color.white);
+
+            // proper game font with Cyrillic (Russo One, OFL) — the built-in font
+            // renders Cyrillic poorly on WebGL/mobile, this fixes "буквы"
+            var font = Resources.Load<Font>("Fonts/RussoOne");
+            if (font != null)
+                foreach (var s in new[] { _title, _h1, _h2, _label, _small, _warn, _button, _bigButton })
+                {
+                    s.font = font;
+                    s.fontStyle = FontStyle.Normal; // the font is already bold/display
+                }
         }
 
         static void SetAllTextColors(GUIStyle s, Color normal, Color highlight)

@@ -14,7 +14,9 @@ namespace Moba
             var go = new GameObject("Popup");
             go.transform.position = pos + new Vector3(Random.Range(-0.3f, 0.3f), 0f, 0f);
             var tm = go.AddComponent<TextMesh>();
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // Russo One (Cyrillic) for "ПОВЕРЖЕН"/"УРОВЕНЬ"; fall back to built-in
+            var font = Resources.Load<Font>("Fonts/RussoOne");
+            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             tm.font = font;
             go.GetComponent<MeshRenderer>().material = font.material;
             tm.text = text;

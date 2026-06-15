@@ -102,7 +102,7 @@ GameObject:
   - component: {fileID: 5881848745211202697}
   - component: {fileID: 4023821384594202064}
   - component: {fileID: 4115371624172388190}
-  - component: {fileID: 1267174049586194381}
+  - component: {fileID: 8494795917445626877}
   m_Layer: 0
   m_Name: Cylinder
   m_TagString: Untagged
@@ -182,7 +182,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &1267174049586194381
+--- !u!114 &8494795917445626877
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -194,7 +194,8 @@ MonoBehaviour:
   m_Script: {fileID: 0}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Moba.AutoColor
-  color: {r: 0.45, g: 0.1, b: 0.05, a: 1}
-  emission: 0.5
-  textureResource: Textures/lava
+  color: {r: 1, g: 0.85, b: 0.7, a: 1}
+  emission: 1
+  textureResource: Textures/lava_color
+  emissionTextureResource: Textures/lava_emission
   tiling: 1

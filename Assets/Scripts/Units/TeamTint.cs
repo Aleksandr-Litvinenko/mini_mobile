@@ -13,6 +13,7 @@ namespace Moba
         public Color color = Color.white;
         public float emission;
         public string textureResource = "";
+        public string emissionTextureResource = "";
         public float tiling = 1f;
 
         void Start()
@@ -28,6 +29,15 @@ namespace Moba
                 {
                     m.mainTexture = tex;
                     m.mainTextureScale = Vector2.one * tiling;
+                }
+            }
+            if (!string.IsNullOrEmpty(emissionTextureResource))
+            {
+                var etex = Resources.Load<Texture2D>(emissionTextureResource);
+                if (etex != null)
+                {
+                    m.EnableKeyword("_EMISSION");
+                    m.SetTexture("_EmissionMap", etex);
                 }
             }
             if (emission > 0f)

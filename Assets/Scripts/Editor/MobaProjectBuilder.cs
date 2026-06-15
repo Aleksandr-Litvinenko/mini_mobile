@@ -276,12 +276,13 @@ namespace Moba.EditorTools
             var root = new GameObject("Tower");
             var baseTier = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.2f, 0f),
                 new Vector3(5.2f, 0.2f, 5.2f));
-            SetColor(baseTier, new Color(0.38f, 0.34f, 0.38f), 0f, "Textures/obsidian", 2f);
-            // ready-made watchtower model (Quaternius, CC0)
-            AddModel(root, "WatchTower_SecondAge_Level3", 5.4f);
-            var lavaRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 4.5f, 0f),
-                new Vector3(3.4f, 0.1f, 3.4f));
-            SetColor(lavaRing, new Color(1f, 0.55f, 0.2f), 1.5f, "Textures/lava", 1f);
+            SetColor(baseTier, new Color(0.4f, 0.36f, 0.34f), 0f, "Textures/ground_rock", 2f);
+            // ready-made fantasy tower (Kenney Tower Defense Kit, CC0)
+            AddModel(root, "TD/tower-round-build-d", 5.6f);
+            var lavaRing = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 4.7f, 0f),
+                new Vector3(3.0f, 0.1f, 3.0f));
+            SetColor(lavaRing, new Color(1f, 0.85f, 0.7f), 1f, "Textures/lava_color", 1f,
+                "Textures/lava_emission");
             AddIdle(lavaRing, 0.08f, 1.4f, 70f, 0f);
             var orb = AddPart(root, PrimitiveType.Sphere, new Vector3(0f, 5.9f, 0f),
                 Vector3.one * 1.1f);
@@ -301,46 +302,21 @@ namespace Moba.EditorTools
             var root = new GameObject("BaseCore");
             var podium = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.3f, 0f),
                 new Vector3(9.4f, 0.3f, 9.4f));
-            SetColor(podium, new Color(0.38f, 0.34f, 0.38f), 0f, "Textures/obsidian", 3f);
-            var step = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.7f, 0f),
-                new Vector3(6.6f, 0.2f, 6.6f));
-            SetColor(step, new Color(0.44f, 0.4f, 0.46f), 0f, "Textures/obsidian", 2f);
-            for (int i = 0; i < 6; i++) // ring of pillars
-            {
-                float a = i / 6f * Mathf.PI * 2f;
-                var p = AddPart(root, PrimitiveType.Cylinder,
-                    new Vector3(Mathf.Cos(a) * 3.9f, 1.4f, Mathf.Sin(a) * 3.9f),
-                    new Vector3(0.8f, 1.1f, 0.8f));
-                SetColor(p, new Color(0.42f, 0.38f, 0.44f), 0f, "Textures/obsidian", 1.5f);
-                var cap = AddPart(root, PrimitiveType.Sphere,
-                    new Vector3(Mathf.Cos(a) * 3.9f, 2.7f, Mathf.Sin(a) * 3.9f),
-                    Vector3.one * 0.5f);
-                cap.AddComponent<TeamTint>();
-            }
-            // the great crystal: ready-made model (Quaternius, CC0), tinted to team color
+            SetColor(podium, new Color(0.4f, 0.36f, 0.34f), 0f, "Textures/ground_rock", 3f);
+            // grand fantasy keep as the nexus (Kenney Tower Defense Kit, CC0)
+            AddModel(root, "TD/tower-round-build-f", 7.2f);
+            // the great crystal on top (Kenney TD), team-tinted and slowly spinning
             var crystalHolder = new GameObject("CrystalHolder");
             crystalHolder.transform.SetParent(root.transform, false);
-            crystalHolder.transform.localPosition = new Vector3(0f, 0.8f, 0f);
-            var crystal = AddModel(crystalHolder, "Crystal2", 4.2f);
+            crystalHolder.transform.localPosition = new Vector3(0f, 7.4f, 0f);
+            var crystal = AddModel(crystalHolder, "TD/detail-crystal-large", 2.6f);
             if (crystal != null)
                 foreach (var r in crystal.GetComponentsInChildren<Renderer>(true))
                     r.gameObject.AddComponent<TeamTint>();
-            AddIdle(crystalHolder, 0.2f, 1.2f, 30f, 0.04f);
-            // orbiting shards
-            var orbit = new GameObject("Orbit");
-            orbit.transform.SetParent(root.transform, false);
-            orbit.transform.localPosition = new Vector3(0f, 3.2f, 0f);
-            AddIdle(orbit, 0.12f, 1.6f, 55f, 0f);
-            for (int i = 0; i < 3; i++)
-            {
-                float a = i / 3f * Mathf.PI * 2f;
-                var shard = AddPart(orbit, PrimitiveType.Sphere,
-                    new Vector3(Mathf.Cos(a) * 2.7f, 0f, Mathf.Sin(a) * 2.7f),
-                    new Vector3(0.45f, 1f, 0.45f));
-                shard.AddComponent<TeamTint>();
-            }
+            AddIdle(crystalHolder, 0.2f, 1.2f, 40f, 0.05f);
 
-            AddHealthBar(root, 5.8f, 3f);
+            AddTeamRing(root, 4.6f);
+            AddHealthBar(root, 9.5f, 3f);
 
             root.AddComponent<NetworkObject>();
             root.AddComponent<BaseCore>();
@@ -378,7 +354,9 @@ namespace Moba.EditorTools
             var root = new GameObject("LavaPool");
             var disc = AddPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0.03f, 0f),
                 new Vector3(1f, 0.06f, 1f));
-            SetColor(disc, new Color(0.45f, 0.1f, 0.05f), 0.5f, "Textures/lava", 1f);
+            // CC0 lava texture: albedo + emission map (ambientCG)
+            SetColor(disc, new Color(1f, 0.85f, 0.7f), 1f, "Textures/lava_color", 1f,
+                "Textures/lava_emission");
             root.AddComponent<NetworkObject>();
             var lp = root.AddComponent<LavaPool>();
             lp.disc = disc.transform;
@@ -809,12 +787,13 @@ namespace Moba.EditorTools
         }
 
         static void SetColor(GameObject go, Color c, float emission = 0f,
-            string texture = "", float tiling = 1f)
+            string texture = "", float tiling = 1f, string emissionTexture = "")
         {
             var ac = go.AddComponent<AutoColor>();
             ac.color = c;
             ac.emission = emission;
             ac.textureResource = texture;
+            ac.emissionTextureResource = emissionTexture;
             ac.tiling = tiling;
         }
 

@@ -9,8 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7793949329954719090}
-  - component: {fileID: 1948308071190777403}
-  - component: {fileID: 333816012503809307}
+  - component: {fileID: 4488810067411224176}
+  - component: {fileID: 5447991091894123820}
   m_Layer: 0
   m_Name: FxRing
   m_TagString: Untagged
@@ -34,7 +34,7 @@ Transform:
   - {fileID: 4599522008970295327}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1948308071190777403
+--- !u!114 &4488810067411224176
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -47,7 +47,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Moba.TimedDestroy
   life: 3
---- !u!114 &333816012503809307
+--- !u!114 &5447991091894123820
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
