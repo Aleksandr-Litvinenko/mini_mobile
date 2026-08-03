@@ -75,6 +75,13 @@ CC0-текстуры (ambientCG), лава течёт и светится. Ка�
 - `Assets/Scripts/UI/HudController.cs` — меню (режимы/герои) и HUD; `TouchHud.cs` — джойстик.
 - `Assets/Scripts/Editor/MobaProjectBuilder.cs` — генерация сцены, префабов, частиц, сборки.
 
+## Работа в git
+
+Сцены и префабы Unity — это YAML, который построчным merge сливать нельзя,
+а модели и текстуры лежат бинарниками. `.gitattributes` в корне уже размечен;
+что настроить у себя один раз — в [docs/GIT-UNITY.md](docs/GIT-UNITY.md).
+Без настройки ничего не ломается: git просто пометит конфликт как обычно.
+
 ## Ассеты (CC0 / OFL)
 
 - **Quaternius** (CC0) — маги (Wizard/Witch/Elf), монстры, кристаллы. quaternius.com

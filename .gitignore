@@ -8,14 +8,36 @@
 [Uu]ser[Ss]ettings/
 MemoryCaptures/
 Recordings/
+ExportedObj/
+[Aa]ssets/[Aa]ssetStoreTools*
+sysinfo.txt
+crashlytics-build.properties
 
 # IDE
 .idea/
 .vs/
 .vscode/
+.consulo/
 *.csproj
 *.sln
+*.unityproj
 *.user
+*.userprefs
+*.suo
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Сборки и пакеты
+*.apk
+*.aab
+*.unitypackage
+*.app/
 
 # OS
 .DS_Store
+Thumbs.db

@@ -1,0 +1,123 @@
+# Git-атрибуты Unity-проекта.
+#
+# Две задачи:
+#   1) не дать git ломать бинарные ассеты переводом переносов строк;
+#   2) научить его сливать Unity-YAML (сцены, префабы, ассеты) специальным
+#      инструментом вместо построчного merge, который для YAML не работает.
+#
+# Проект сериализуется текстом (ProjectSettings/EditorSettings.asset,
+# m_SerializationMode: 2 — Force Text), поэтому UnityYAMLMerge применим.
+#
+# Чтобы merge=unity заработал, один раз пропишите инструмент в своём ~/.gitconfig
+# (путь зависит от версии и ОС, см. docs/GIT-UNITY.md):
+#
+#   git config --global merge.unity.name "UnityYAMLMerge"
+#   git config --global merge.unity.driver '"/Applications/Unity/Hub/Editor/<версия>/Unity.app/Contents/Tools/UnityYAMLMerge" merge -p "$BASE" "$REMOTE" "$LOCAL" "$MERGED"'
+#
+# Без этой настройки ничего не сломается: git просто откатится на обычный
+# merge и пометит конфликт — то же поведение, что и до появления файла.
+
+# ── Исходники ───────────────────────────────────────────────────────────────
+*.cs        text diff=csharp
+*.asmdef    text
+*.shader    text
+*.cginc     text
+*.hlsl      text
+*.compute   text
+*.json      text
+*.md        text
+*.txt       text
+*.xml       text
+*.yml       text
+*.yaml      text
+
+# ── Unity YAML: сливаем UnityYAMLMerge ──────────────────────────────────────
+*.unity     text merge=unity eol=lf
+*.prefab    text merge=unity eol=lf
+*.asset     text merge=unity eol=lf
+*.mat       text merge=unity eol=lf
+*.anim      text merge=unity eol=lf
+*.controller text merge=unity eol=lf
+*.overrideController text merge=unity eol=lf
+*.physicMaterial text merge=unity eol=lf
+*.physicsMaterial2D text merge=unity eol=lf
+*.playable  text merge=unity eol=lf
+*.mask      text merge=unity eol=lf
+*.brush     text merge=unity eol=lf
+*.flare     text merge=unity eol=lf
+*.fontsettings text merge=unity eol=lf
+*.guiskin   text merge=unity eol=lf
+*.giparams  text merge=unity eol=lf
+*.lighting  text merge=unity eol=lf
+*.mixer     text merge=unity eol=lf
+*.preset    text merge=unity eol=lf
+*.renderTexture text merge=unity eol=lf
+*.shadervariants text merge=unity eol=lf
+*.signal    text merge=unity eol=lf
+*.spriteatlas text merge=unity eol=lf
+*.terrainlayer text merge=unity eol=lf
+
+# .meta — тоже YAML, но конфликты в них решаются вручную:
+# автослияние gid-ов и ссылок опаснее, чем явный конфликт.
+*.meta      text eol=lf
+
+# ── Бинарные ассеты ─────────────────────────────────────────────────────────
+# Модели
+*.fbx       binary
+*.obj       binary
+*.blend     binary
+*.dae       binary
+*.3ds       binary
+*.max       binary
+*.c4d       binary
+*.ma        binary
+*.mb        binary
+
+# Текстуры и изображения
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.tga       binary
+*.tif       binary
+*.tiff      binary
+*.psd       binary
+*.exr       binary
+*.hdr       binary
+*.gif       binary
+*.bmp       binary
+*.webp      binary
+*.cubemap   binary
+
+# Звук и видео
+*.wav       binary
+*.mp3       binary
+*.ogg       binary
+*.aif       binary
+*.aiff      binary
+*.mp4       binary
+*.mov       binary
+*.webm      binary
+
+# Шрифты
+*.ttf       binary
+*.otf       binary
+
+# Пакеты и библиотеки
+*.unitypackage binary
+*.dll       binary
+*.so        binary
+*.dylib     binary
+*.a         binary
+*.pdb       binary
+*.apk       binary
+*.aab       binary
+*.aar       binary
+*.jar       binary
+*.bundle    binary
+*.zip       binary
+
+# ── Чужие файлы не трогаем ──────────────────────────────────────────────────
+# Ассеты и лицензии сторонних авторов лежат ровно в том виде, в каком получены
+# (в том числе с CRLF). Нормализация переносов строк переписала бы чужие файлы
+# без всякой пользы — поэтому здесь атрибуты выключены.
+Assets/ThirdParty/** -text
